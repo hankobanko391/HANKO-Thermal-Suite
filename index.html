@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HANKO // Thermal Suite — Windows Hardware Telemetry &amp; Power Policy Utility</title>
+  <meta name="description" content="Industrial Windows hardware telemetry, live powercfg thermal policy control, and multi-core load verification utility. Zero fabricated sensors." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-base: #111317;
+      --bg-header: #15181E;
+      --bg-panel: #181B20;
+      --bg-recessed: #13161B;
+      --border: #262A33;
+      --divider: #1F232B;
+      --slate: #1E242D;
+      --text-primary: #E5E7EB;
+      --text-secondary: #9CA3AF;
+      --text-muted: #6B7280;
+      --cyan: #00B4D8;
+      --cyan-bright: #38BDF8;
+      --ok: #22C55E;
+      --warn: #F59E0B;
+      --crit: #EF4444;
+      --mono: "JetBrains Mono", Consolas, "Courier New", monospace;
+      --sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--sans);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--cyan-bright); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: var(--mono);
+      font-size: 0.85em;
+      background: var(--bg-recessed);
+      border: 1px solid var(--divider);
+      padding: 1px 5px;
+      border-radius: 2px;
+      color: var(--cyan-bright);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Top Instrument Bar */
+    .topbar {
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-text h1 {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text-primary);
+    }
+    .brand-text span {
+      display: block;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+    .nav-links a {
+      color: var(--text-secondary);
+      transition: color 0.15s ease;
+    }
+    .nav-links a:hover {
+      color: var(--cyan-bright);
+      text-decoration: none;
+    }
+    .version-tag {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--cyan-bright);
+      background: var(--bg-recessed);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 2px;
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 44px 0 40px;
+      border-bottom: 1px solid var(--divider);
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 1.25fr;
+      gap: 28px;
+      align-items: start;
+    }
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--cyan);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .hero-title {
+      margin: 0 0 14px;
+      font-size: 32px;
+      line-height: 1.18;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+    }
+    .hero-desc {
+      margin: 0 0 22px;
+      font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 500px;
+    }
+
+    .cta-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 16px;
+      border-radius: 2px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .btn:hover { text-decoration: none; }
+    .btn-primary {
+      background: var(--slate);
+      border-color: var(--cyan);
+      color: var(--text-primary);
+    }
+    .btn-primary:hover {
+      background: #232B36;
+      border-color: var(--cyan-bright);
+    }
+    .btn-secondary {
+      background: var(--bg-panel);
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+    .btn-secondary:hover {
+      border-color: var(--text-muted);
+      color: var(--text-primary);
+    }
+    .btn-sub {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+    .btn-primary .btn-sub { color: var(--cyan-bright); }
+
+    .spec-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .spec-cell {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      border-radius: 2px;
+    }
+    .spec-cell .k {
+      display: block;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+    .spec-cell .v {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Authentic Instrument Preview Mockup */
+    .instrument-frame {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .inst-header {
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .inst-header .left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .inst-header .right {
+      display: flex;
+      gap: 8px;
+      font-size: 10px;
+    }
+    .tag-ok {
+      color: var(--ok);
+      background: var(--bg-recessed);
+      border: 1px solid var(--divider);
+      padding: 2px 6px;
+    }
+    .tag-cyan {
+      color: var(--cyan-bright);
+      background: var(--bg-recessed);
+      border: 1px solid var(--divider);
+      padding: 2px 6px;
+    }
+    .tag-warn {
+      color: var(--warn);
+      background: var(--bg-recessed);
+      border: 1px solid var(--warn);
+      padding: 2px 6px;
+    }
+    .inst-body {
+      display: grid;
+      grid-template-columns: 1fr 1.05fr;
+      gap: 10px;
+      padding: 10px;
+      background: var(--bg-base);
+    }
+    .subpanel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+    }
+    .subpanel-hdr {
+      background: var(--bg-header);
+      border-bottom: 1px solid var(--border);
+      padding: 6px 10px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sensor-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 10.5px;
+    }
+    .sensor-tbl th {
+      background: var(--bg-recessed);
+      color: var(--text-muted);
+      font-weight: 500;
+      text-align: left;
+      padding: 4px 8px;
+      font-size: 9.5px;
+      border-bottom: 1px solid var(--divider);
+    }
+    .sensor-tbl th:not(:first-child),
+    .sensor-tbl td:not(:first-child) {
+      text-align: right;
+    }
+    .sensor-tbl tr.grp td {
+      background: var(--divider);
+      color: var(--cyan-bright);
+      font-weight: 700;
+      font-size: 9.5px;
+      padding: 4px 8px;
+      text-align: left;
+    }
+    .sensor-tbl td {
+      padding: 4px 8px;
+      border-bottom: 1px solid #16191F;
+      color: var(--text-secondary);
+    }
+    .sensor-tbl td.val { color: var(--text-primary); font-weight: 600; }
+    .sensor-tbl td.cyan { color: var(--cyan-bright); font-weight: 600; }
+    .sensor-tbl td.warn { color: var(--warn); font-weight: 600; }
+    .sensor-tbl td.muted { color: var(--text-muted); }
+
+    .ctrl-stack {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .ctrl-box {
+      background: var(--bg-recessed);
+      border: 1px solid var(--divider);
+      padding: 8px;
+      border-radius: 2px;
+    }
+    .ctrl-lbl {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+    .ctrl-lbl strong { color: var(--cyan-bright); }
+    .bar-track {
+      height: 6px;
+      background: var(--border);
+      position: relative;
+      margin-bottom: 6px;
+    }
+    .bar-fill {
+      height: 100%;
+      background: var(--cyan);
+      width: 95%;
+    }
+    .seg-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      font-family: var(--mono);
+      font-size: 9.5px;
+    }
+    .seg-row.two { grid-template-columns: repeat(2, 1fr); }
+    .seg-btn {
+      padding: 4px 6px;
+      text-align: center;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-right: 1px solid var(--border);
+      user-select: none;
+    }
+    .seg-btn:last-child { border-right: none; }
+    .seg-btn.active {
+      background: var(--cyan);
+      color: #0B1014;
+      font-weight: 700;
+    }
+
+    .curve-preview {
+      position: relative;
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      height: 92px;
+    }
+    .inst-footer {
+      background: var(--bg-header);
+      border-top: 1px solid var(--border);
+      padding: 5px 10px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+
+    /* Sections */
+    .section {
+      padding: 40px 0;
+      border-bottom: 1px solid var(--divider);
+    }
+    .section-title {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--cyan-bright);
+      text-transform: uppercase;
+      margin: 0 0 6px;
+    }
+    .section-sub {
+      margin: 0 0 22px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* Technical Table */
+    .tech-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .tech-table th {
+      background: var(--bg-header);
+      font-family: var(--mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tech-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--divider);
+      color: var(--text-secondary);
+      vertical-align: top;
+    }
+    .tech-table td:first-child {
+      color: var(--text-primary);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* Two Column Install */
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 20px;
+    }
+    .card-hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--divider);
+    }
+    .card-hdr h3 {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--text-primary);
+    }
+    .card ol {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text-secondary);
+      font-size: 13.5px;
+    }
+    .card li { margin-bottom: 7px; }
+    .codeblock {
+      margin-top: 12px;
+      background: var(--bg-recessed);
+      border: 1px solid var(--divider);
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-primary);
+      overflow-x: auto;
+    }
+
+    footer {
+      padding: 24px 0 36px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    @media (max-width: 960px) {
+      .hero-grid, .inst-body, .two-col {
+        grid-template-columns: 1fr;
+      }
+      .spec-strip { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <!-- Razor-sharp Victus 'V' Emblem matching main.py & assets/hanko_victus.ico -->
+        <svg width="42" height="36" viewBox="0 0 48 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Victus V Emblem">
+          <polyline points="1,9 1,1 9,1" stroke="#262A33" stroke-width="1" />
+          <polyline points="39,39 47,39 47,31" stroke="#262A33" stroke-width="1" />
+          <polygon points="5,7 17,7 24,23 31,7 43,7 27.5,36 20.5,36" fill="#1E242D" />
+          <polygon points="7.5,5 15.5,5 24,24.5 24,34.5 21.5,34.5" fill="#00B4D8" />
+          <polygon points="40.5,5 32.5,5 24,24.5 24,34.5 26.5,34.5" fill="#38BDF8" />
+          <line x1="24" y1="24.5" x2="24" y2="35" stroke="#15181E" stroke-width="1" />
+        </svg>
+        <div class="brand-text">
+          <h1>HANKO // THERMAL SUITE</h1>
+          <span>HARDWARE TELEMETRY &amp; POWER POLICY ENGINE</span>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <a href="#telemetry">Architecture</a>
+        <a href="#install">Deployment</a>
+        <a href="https://github.com/hankobanko391/HANKO-Thermal-Suite" target="_blank" rel="noopener">Source</a>
+        <a href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/tag/v1.0.0" class="version-tag" target="_blank" rel="noopener">v1.0.0</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="eyebrow">WINDOWS 10 / 11 X64 &bull; ZERO FABRICATED SENSORS</div>
+          <h2 class="hero-title">Direct thermal policy &amp; genuine hardware telemetry.</h2>
+          <p class="hero-desc">
+            A flat matte-charcoal desktop instrument inspired by <code>FanControl</code> and <code>HWiNFO64</code>.
+            Reads live CPU, GPU, and ACPI thermal sensors, applies real <code>powercfg</code> processor boost and
+            cooling policies, and verifies cooling response with an integrated multi-core stress generator.
+          </p>
+
+          <div class="cta-stack">
+            <a class="btn btn-primary" href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/download/v1.0.0/HANKO_Portable_Setup.zip">
+              <span>DOWNLOAD PORTABLE SETUP (.ZIP)</span>
+              <span class="btn-sub">setup_and_run.bat &bull; Smart App Control Immune</span>
+            </a>
+            <a class="btn btn-secondary" href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/download/v1.0.0/HANKO_Thermal_Suite.exe">
+              <span>DOWNLOAD STANDALONE BINARY (.EXE)</span>
+              <span class="btn-sub">PyInstaller --onefile --uac-admin</span>
+            </a>
+          </div>
+
+          <div class="spec-strip">
+            <div class="spec-cell">
+              <span class="k">TELEMETRY BUS</span>
+              <span class="v">CIM + NVSMI + PSUTIL</span>
+            </div>
+            <div class="spec-cell">
+              <span class="k">POWER ENGINE</span>
+              <span class="v">POWERCFG AC+DC</span>
+            </div>
+            <div class="spec-cell">
+              <span class="k">OEM EC LOCKS</span>
+              <span class="v">REPORTED HONESTLY</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Precision Instrument UI Replica -->
+        <div class="instrument-frame" aria-label="HANKO Thermal Suite UI Preview">
+          <div class="inst-header">
+            <div class="left">
+              <svg width="20" height="17" viewBox="0 0 48 40" fill="none">
+                <polygon points="5,7 17,7 24,23 31,7 43,7 27.5,36 20.5,36" fill="#1E242D" />
+                <polygon points="7.5,5 15.5,5 24,24.5 24,34.5 21.5,34.5" fill="#00B4D8" />
+                <polygon points="40.5,5 32.5,5 24,24.5 24,34.5 26.5,34.5" fill="#38BDF8" />
+              </svg>
+              <span>HANKO // THERMAL SUITE</span>
+            </div>
+            <div class="right">
+              <span class="tag-ok">PRIV: ADMIN</span>
+              <span class="tag-cyan">PLAN: HIGH PERFORMANCE</span>
+            </div>
+          </div>
+
+          <div class="inst-body">
+            <div class="subpanel">
+              <div class="subpanel-hdr">
+                <span>LIVE HARDWARE SENSOR TREE</span>
+                <span style="color:var(--text-muted);font-weight:400;">1.0s POLL</span>
+              </div>
+              <table class="sensor-tbl">
+                <thead>
+                  <tr><th>SENSOR</th><th>CURRENT</th><th>MIN</th><th>MAX</th></tr>
+                </thead>
+                <tbody>
+                  <tr class="grp"><td colspan="4">CPU // SYSTEM PROCESSOR</td></tr>
+                  <tr><td>Package / ACPI Temp</td><td class="cyan">61.4 &deg;C</td><td>44.0&deg;</td><td>79.2&deg;</td></tr>
+                  <tr><td>Core Clock (Dynamic)</td><td class="val">3.48 GHz</td><td>1.85G</td><td>4.10G</td></tr>
+                  <tr><td>Total CPU Load</td><td class="val">34.2 %</td><td>4.1%</td><td>99.8%</td></tr>
+                  <tr class="grp"><td colspan="4">GPU // NVIDIA GEFORCE GTX 1050</td></tr>
+                  <tr><td>GPU Core Temp</td><td class="cyan">47 &deg;C</td><td>42&deg;</td><td>68&deg;</td></tr>
+                  <tr><td>GPU Core Clock</td><td class="val">1366 MHz</td><td>607M</td><td>1493M</td></tr>
+                  <tr><td>GPU Power Draw</td><td class="muted">N/A (Not Exposed)</td><td>--</td><td>--</td></tr>
+                  <tr class="grp"><td colspan="4">COOLING // DETECTED FAN RPMS</td></tr>
+                  <tr><td>Chassis / CPU Fan</td><td class="warn">N/A (OEM EC Locked)</td><td>--</td><td>--</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="subpanel">
+              <div class="subpanel-hdr">
+                <span>DIRECT HARDWARE CONTROLS</span>
+                <span style="color:var(--cyan-bright);font-weight:400;">INTERACTIVE</span>
+              </div>
+              <div class="ctrl-stack">
+                <div class="ctrl-box">
+                  <div class="ctrl-lbl">
+                    <span>PROCTHROTTLEMAX</span>
+                    <strong id="pv-pct">95%</strong>
+                  </div>
+                  <div class="bar-track"><div class="bar-fill" id="pv-bar"></div></div>
+                  <div class="ctrl-lbl" style="margin-top:4px;"><span>PERFBOOSTMODE</span></div>
+                  <div class="seg-row" data-group="boost">
+                    <div class="seg-btn" data-val="Disabled (Cool/Quiet)">Disabled</div>
+                    <div class="seg-btn active" data-val="Efficient Enabled">Efficient</div>
+                    <div class="seg-btn" data-val="Aggressive (Full Boost)">Aggressive</div>
+                  </div>
+                  <div class="ctrl-lbl" style="margin-top:6px;"><span>SYSCOOLPOL</span></div>
+                  <div class="seg-row two" data-group="cool">
+                    <div class="seg-btn" data-val="Passive (Throttle First)">Passive</div>
+                    <div class="seg-btn active" data-val="Active (Fan Ramp First)">Active</div>
+                  </div>
+                </div>
+
+                <div class="ctrl-box">
+                  <div class="ctrl-lbl">
+                    <span>PWM FAN CURVE EDITOR</span>
+                    <span class="tag-warn">LOCKED BY OEM BIOS EC</span>
+                  </div>
+                  <div class="curve-preview">
+                    <svg width="100%" height="100%" viewBox="0 0 260 92" preserveAspectRatio="none">
+                      <line x1="20" y1="22" x2="250" y2="22" stroke="#1F232B" stroke-width="1" />
+                      <line x1="20" y1="46" x2="250" y2="46" stroke="#1F232B" stroke-width="1" />
+                      <line x1="20" y1="70" x2="250" y2="70" stroke="#1F232B" stroke-width="1" />
+                      <polyline points="20,70 55,66 105,54 155,36 205,18 250,10" fill="none" stroke="#4B5563" stroke-width="2" />
+                      <rect x="40" y="34" width="180" height="22" fill="#181B20" stroke="#F59E0B" stroke-width="1" />
+                      <text x="130" y="48" fill="#F59E0B" font-family="JetBrains Mono, monospace" font-size="9" font-weight="700" text-anchor="middle">LOCKED BY OEM BIOS EC</text>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="inst-footer" id="pv-console">
+            [20:41:02] powercfg: PERFBOOSTMODE=3 (Efficient Enabled) applied [AC+DC]
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="telemetry">
+      <div class="container">
+        <h2 class="section-title">01 // Hardware Interface Specification</h2>
+        <p class="section-sub">Every metric and control maps directly to an OS power interface, WMI/CIM namespace, or NVIDIA driver API.</p>
+
+        <table class="tech-table">
+          <thead>
+            <tr>
+              <th>Subsystem</th>
+              <th>Native Interface / GUID</th>
+              <th>Behavior on Locked OEM Laptops</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Maximum Processor State</td>
+              <td><code>SUB_PROCESSOR / PROCTHROTTLEMAX</code> (<code>bc5038f7-23e0-4960-96da-33abaf5935ec</code>)</td>
+              <td>Fully active (50%&ndash;100% slider applied live to AC &amp; DC).</td>
+            </tr>
+            <tr>
+              <td>Processor Boost Mode</td>
+              <td><code>SUB_PROCESSOR / PERFBOOSTMODE</code> (<code>be337238-0d82-4146-a960-4f3749d470c7</code>)</td>
+              <td>Switches between <code>0</code> Disabled, <code>3</code> Efficient Enabled, <code>2</code> Aggressive.</td>
+            </tr>
+            <tr>
+              <td>System Cooling Policy</td>
+              <td><code>SUB_PROCESSOR / SYSCOOLPOL</code> (<code>94d3a615-a899-4ac5-ae2b-e4d8f634367f</code>)</td>
+              <td>Switches OS fan-ramp preference between <code>0</code> Passive and <code>1</code> Active.</td>
+            </tr>
+            <tr>
+              <td>CPU Temp &amp; Turbo Clock</td>
+              <td><code>MSAcpi_ThermalZoneTemperature</code>, <code>ThermalZoneInformation</code>, <code>ProcessorInformation</code>, optional LHM WMI</td>
+              <td>Falls back across real CIM counters; reports <code>N/A (Sensor Locked)</code> if firmware omits zones.</td>
+            </tr>
+            <tr>
+              <td>GPU Telemetry &amp; PWM</td>
+              <td><code>nvidia-smi</code> CSV + direct <code>nvml.dll</code> fan control probe</td>
+              <td>Unlocks manual/curve PWM on supported desktop GPUs; shows <code>Locked by OEM BIOS EC</code> and <code>N/A (OEM EC Locked)</code> on EC-locked laptops.</td>
+            </tr>
+            <tr>
+              <td>Thermal Load Verification</td>
+              <td>Multi-process floating-point ALU burn (<code>multiprocessing.Process</code>)</td>
+              <td>Runs at 25% / 50% / 75% / 100% logical threads to test real cooling ramp &amp; temp delta.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section" id="install">
+      <div class="container">
+        <h2 class="section-title">02 // Deployment &amp; Execution</h2>
+        <p class="section-sub">Choose the portable Python launcher (recommended on Windows 11 Smart App Control systems) or the standalone PyInstaller executable.</p>
+
+        <div class="two-col">
+          <div class="card">
+            <div class="card-hdr">
+              <h3>PORTABLE SETUP (RECOMMENDED)</h3>
+              <span class="tag-ok">SMART APP CONTROL IMMUNE</span>
+            </div>
+            <ol>
+              <li>Download <code>HANKO_Portable_Setup.zip</code> from Releases and extract it.</li>
+              <li>Double-click <code>setup_and_run.bat</code>.</li>
+              <li>Accept the Administrator UAC prompt (required for <code>powercfg</code>).</li>
+              <li>Missing packages (<code>customtkinter</code>, <code>psutil</code>, <code>pillow</code>) install automatically and a <strong>HANKO Thermal Suite</strong> Desktop shortcut with the Victus V icon is created.</li>
+            </ol>
+            <div class="codeblock">git clone https://github.com/hankobanko391/HANKO-Thermal-Suite.git
+cd HANKO-Thermal-Suite
+.\setup_and_run.bat</div>
+          </div>
+
+          <div class="card">
+            <div class="card-hdr">
+              <h3>STANDALONE EXECUTABLE</h3>
+              <span class="tag-cyan">NO PYTHON REQUIRED</span>
+            </div>
+            <ol>
+              <li>Download <code>HANKO_Thermal_Suite.exe</code> from Release <code>v1.0.0</code>.</li>
+              <li>Run the binary (built with <code>--onefile --windowed --uac-admin</code>).</li>
+              <li>If Windows Smart App Control blocks unsigned executables on your PC, switch to <code>HANKO_Portable_Setup.zip</code>.</li>
+            </ol>
+            <div class="codeblock">pyinstaller --noconfirm --clean --onefile --windowed --uac-admin ^
+  --collect-all customtkinter --name HANKO_Thermal_Suite ^
+  --icon assets\hanko_victus.ico main.py</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <span>HANKO // THERMAL SUITE v1.0.0 &bull; MIT LICENSE &bull; hankobanko391</span>
+      <span>
+        <a href="https://github.com/hankobanko391/HANKO-Thermal-Suite">GitHub Repository</a> &middot;
+        <a href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/tag/v1.0.0">Release v1.0.0</a>
+      </span>
+    </div>
+  </footer>
+
+  <script>
+    // Subtle interactive demo behavior for preview segments
+    document.querySelectorAll('.seg-row').forEach(group => {
+      group.querySelectorAll('.seg-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const gName = group.dataset.group === 'boost' ? 'PERFBOOSTMODE' : 'SYSCOOLPOL';
+          const out = document.getElementById('pv-console');
+          if (out) {
+            out.textContent = `[preview] powercfg: ${gName} -> ${btn.dataset.val} [AC+DC]`;
+          }
+          const bar = document.getElementById('pv-bar');
+          const pct = document.getElementById('pv-pct');
+          if (group.dataset.group === 'boost' && bar && pct) {
+            const map = { 'Disabled (Cool/Quiet)': '75%', 'Efficient Enabled': '95%', 'Aggressive (Full Boost)': '100%' };
+            const v = map[btn.dataset.val] || '95%';
+            bar.style.width = v;
+            pct.textContent = v;
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
