@@ -24,6 +24,8 @@ from typing import Any, Callable
 
 import psutil
 
+from fan_engine import EC_LOCKED_MESSAGE, FanChannel, FanEngine, FanScanResult
+
 CREATE_NO_WINDOW = 0x08000000
 
 SUB_PROCESSOR = "54533251-82be-4824-96c1-47b60b740d00"
@@ -151,6 +153,9 @@ class SensorSnapshot:
     gpu_vram_total_mb: float | None = None
     gpu_pstate: str | None = None
     fans: list[FanReading] = field(default_factory=list)
+    fan_scan: FanScanResult = field(
+        default_factory=lambda: FanScanResult(0, [], EC_LOCKED_MESSAGE, "Initializing", False)
+    )
 
 
 @dataclass
@@ -615,6 +620,7 @@ class HardwareEngine:
         self.poll_interval_s = max(0.5, poll_interval_s)
         self._cim = _CimBridge()
         self._nvml = _NvmlFanController()
+        self.fan_engine = FanEngine()
         self._nvidia_smi_path = self._find_nvidia_smi()
         self._lock = threading.Lock()
         self._stop_event = threading.Event()
@@ -774,11 +780,26 @@ class HardwareEngine:
             snap.cpu_load_pct = round(psutil.cpu_percent(interval=None), 1)
             snap.cpu_peak_core_pct = snap.cpu_load_pct
 
-        # 2. WMI/CIM Poll (CPU temp, dynamic clock, LHM/OHM sensors, Win32_Fan)
-        cim_poll = self._cim.query("POLL", timeout=2.5)
-        fans: list[FanReading] = []
+        # 2. Scan fans via LibreHardwareMonitorLib (PawnIO)
+        fan_scan = self.fan_engine.scan_fans()
+        snap.fan_scan = fan_scan
+        fans: list[FanReading] = [
+            FanReading(
+                name=fc.name,
+                rpm=fc.rpm,
+                duty_pct=fc.load_pct,
+                source=fc.pct_source,
+                status=f"{fc.rpm:.0f} RPM ({fc.load_pct:.0f}%)",
+            )
+            for fc in fan_scan.fans
+        ]
+        for fc in fan_scan.fans:
+            self.min_max.update(f"fan_rpm:{fc.identifier}", fc.rpm)
 
-        # 2a. Check LibreHardwareMonitor / OpenHardwareMonitor if user runs it in background
+        # 3. WMI/CIM Poll (CPU temp, dynamic clock, LHM/OHM fallback sensors)
+        cim_poll = self._cim.query("POLL", timeout=2.5)
+
+        # 3a. Check external LibreHardwareMonitor / OpenHardwareMonitor WMI if active
         lhm_sensors = cim_poll.get("lhm_sensors")
         if isinstance(lhm_sensors, list):
             for s in lhm_sensors:
@@ -792,12 +813,12 @@ class HardwareEngine:
                     if "cpu" in ident and ("package" in sname.lower() or snap.cpu_temp_c is None):
                         snap.cpu_temp_c = round(sval, 1)
                         snap.cpu_temp_source = "LibreHardwareMonitor"
-                elif stype == "Fan" and sval is not None and sval >= 0:
+                elif stype == "Fan" and not fan_scan.fans and sval is not None and sval >= 0:
                     fans.append(
                         FanReading(
                             name=sname or "Fan",
                             rpm=round(sval, 0),
-                            source="LHM/OHM",
+                            source="LHM/OHM WMI",
                             status="Active" if sval > 0 else "Idle",
                         )
                     )
@@ -859,27 +880,27 @@ class HardwareEngine:
                 snap.cpu_clock_ghz = round(ps_freq.current / 1000.0, 2)
                 snap.cpu_clock_source = "psutil.cpu_freq"
 
-        # 2e. Genuine Win32_Fan rows (only if Win32_Fan exposes real rows)
-        win_fans = cim_poll.get("win_fans")
-        if isinstance(win_fans, list):
-            for wf in win_fans:
-                if not isinstance(wf, dict):
-                    continue
-                fname = str(wf.get("Name") or wf.get("DeviceID") or "ACPI System Fan").strip()
-                desired = _parse_float(wf.get("DesiredSpeed"))
-                status_str = str(wf.get("Status") or "Unknown").strip()
-                # DesiredSpeed in Win32_Fan is often null or unpopulated on OEM laptops; never fake RPM.
-                rpm_val = desired if (desired is not None and desired > 0) else None
-                fans.append(
-                    FanReading(
-                        name=fname,
-                        rpm=rpm_val,
-                        source="Win32_Fan",
-                        status=status_str if rpm_val is not None else "N/A (OEM EC Locked)",
-                    )
-                )
+        # 3e. Genuine Win32_Fan rows (only if Win32_Fan exposes real numeric RPMs and LHM found none)
+        if not fan_scan.fans:
+            win_fans = cim_poll.get("win_fans")
+            if isinstance(win_fans, list):
+                for wf in win_fans:
+                    if not isinstance(wf, dict):
+                        continue
+                    fname = str(wf.get("Name") or wf.get("DeviceID") or "ACPI System Fan").strip()
+                    desired = _parse_float(wf.get("DesiredSpeed"))
+                    status_str = str(wf.get("Status") or "Unknown").strip()
+                    if desired is not None and desired > 0:
+                        fans.append(
+                            FanReading(
+                                name=fname,
+                                rpm=desired,
+                                source="Win32_Fan",
+                                status=status_str,
+                            )
+                        )
 
-        # 3. NVIDIA GPU Telemetry via nvidia-smi
+        # 4. NVIDIA GPU Telemetry via nvidia-smi
         nv = self._poll_nvidia()
         if nv:
             snap.gpu_temp_c = nv["temp"]
@@ -890,7 +911,7 @@ class HardwareEngine:
             snap.gpu_vram_used_mb = nv["vram_used"]
             snap.gpu_vram_total_mb = nv["vram_total"]
             snap.gpu_pstate = nv["pstate"]
-            if nv["fan_pct"] is not None:
+            if nv["fan_pct"] is not None and not fan_scan.fans:
                 fans.append(
                     FanReading(
                         name=f"{nv['name']} Fan",
@@ -985,5 +1006,6 @@ class HardwareEngine:
             self._thread.join(timeout=1.5)
         if self._nvml.available and self._fan_mode != "AUTO":
             self._nvml.restore_auto()
+        self.fan_engine.close()
         self._nvml.close()
         self._cim.close()

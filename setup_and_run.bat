@@ -24,9 +24,9 @@ if %errorlevel% neq 0 (
 )
 
 :: Install missing runtime dependencies
-python -c "import customtkinter, psutil, PIL" >nul 2>&1
+python -c "import customtkinter, psutil, PIL, clr" >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [HANKO] Installing required dependencies ^(customtkinter, psutil, pillow^)...
+    echo [HANKO] Installing required dependencies ^(customtkinter, psutil, pillow, pythonnet^)...
     python -m pip install --upgrade pip >nul 2>&1
     python -m pip install -r "%~dp0requirements.txt"
     if %errorlevel% neq 0 (

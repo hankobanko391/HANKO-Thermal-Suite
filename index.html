@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HANKO Thermal Suite by Yassin Haitham (hankobanko391) — Windows Hardware Telemetry &amp; Power Policy Utility</title>
-  <meta name="description" content="HANKO Thermal Suite by Yassin Haitham (hankobanko391): Industrial Windows 10/11 hardware telemetry, live powercfg processor boost and cooling policy engine, and multi-core thermal load verification utility." />
-  <meta name="keywords" content="HANKO Thermal Suite, Yassin Haitham, hankobanko391, Windows hardware telemetry, powercfg thermal policy, CPU boost control, GPU fan curve utility, Windows 11 thermal monitor, open-source hardware tool" />
+  <title>HANKO Thermal Suite v2.0 by Yassin Haitham (hankobanko391) — Multi-Fan Telemetry &amp; Clock Tuner</title>
+  <meta name="description" content="HANKO Thermal Suite v2.0 by Yassin Haitham (hankobanko391): Industrial Windows 10/11 hardware telemetry, PawnIO LibreHardwareMonitor multi-fan RPM array, nvidia-smi GPU MHz &amp; powercfg CPU GHz clock tuner, and multi-core thermal load verification." />
+  <meta name="keywords" content="HANKO Thermal Suite, Yassin Haitham, hankobanko391, LibreHardwareMonitorLib PawnIO, multi-fan RPM monitor, nvidia-smi lock-gpu-clocks, PROCFREQMAX CPU frequency control, powercfg thermal policy, HWiNFO64 alternative, Windows 11 hardware telemetry" />
   <meta name="author" content="Yassin Haitham" />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://hankobanko391.github.io/HANKO-Thermal-Suite/" />
   <link rel="me" href="https://github.com/hankobanko391" />
-  <meta property="og:title" content="HANKO Thermal Suite by Yassin Haitham — Windows Hardware Telemetry &amp; Power Policy Engine" />
-  <meta property="og:description" content="Industrial Windows 10/11 hardware telemetry, live powercfg thermal policy control, and multi-core load verification utility by Yassin Haitham (hankobanko391)." />
+  <meta property="og:title" content="HANKO Thermal Suite v2.0 by Yassin Haitham — Multi-Fan Telemetry &amp; Clock Tuner" />
+  <meta property="og:description" content="Industrial Windows 10/11 hardware telemetry with PawnIO LibreHardwareMonitor multi-fan array, GPU MHz clock lock, CPU GHz cap, and live powercfg thermal controls." />
   <meta property="og:url" content="https://hankobanko391.github.io/HANKO-Thermal-Suite/" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="HANKO Thermal Suite — Yassin Haitham" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="HANKO Thermal Suite by Yassin Haitham — Windows Hardware Telemetry &amp; Power Policy Engine" />
-  <meta name="twitter:description" content="Industrial Windows 10/11 hardware telemetry, live powercfg thermal policy control, and multi-core load verification utility by Yassin Haitham (hankobanko391)." />
+  <meta name="twitter:title" content="HANKO Thermal Suite v2.0 by Yassin Haitham — Multi-Fan Telemetry &amp; Clock Tuner" />
+  <meta name="twitter:description" content="Industrial Windows 10/11 hardware telemetry, PawnIO LibreHardwareMonitor multi-fan array, GPU MHz &amp; CPU GHz clock tuning, and multi-core thermal load verification." />
   <meta name="twitter:creator" content="@hankobanko391" />
   <script type="application/ld+json">
   {
@@ -37,13 +37,13 @@
       {
         "@type": "SoftwareApplication",
         "name": "HANKO Thermal Suite",
-        "softwareVersion": "1.0.0",
+        "softwareVersion": "2.0.0",
         "operatingSystem": "Windows 10, Windows 11",
         "applicationCategory": "UtilitiesApplication",
         "url": "https://hankobanko391.github.io/HANKO-Thermal-Suite/",
-        "downloadUrl": "https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/tag/v1.0.0",
+        "downloadUrl": "https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/latest",
         "codeRepository": "https://github.com/hankobanko391/HANKO-Thermal-Suite",
-        "description": "Industrial Windows hardware telemetry, live powercfg thermal policy control, and multi-core load verification utility by Yassin Haitham.",
+        "description": "Industrial Windows hardware telemetry, PawnIO LibreHardwareMonitor multi-fan RPM array, nvidia-smi GPU MHz & powercfg CPU GHz clock tuner, and multi-core load verification utility by Yassin Haitham.",
         "author": {
           "@type": "Person",
           "@id": "https://hankobanko391.github.io/#yassin-haitham",
@@ -74,20 +74,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-base: #111317;
-      --bg-header: #15181E;
-      --bg-panel: #181B20;
-      --bg-recessed: #13161B;
-      --border: #262A33;
-      --divider: #1F232B;
-      --slate: #1E242D;
-      --text-primary: #E5E7EB;
+      --bg-base: #0D0F12;
+      --bg-header: #111419;
+      --bg-panel: #15181E;
+      --bg-recessed: #0F1217;
+      --border: #282D37;
+      --divider: #1E222B;
+      --slate: #1C2029;
+      --text-primary: #E6EAF0;
       --text-secondary: #9CA3AF;
       --text-muted: #6B7280;
-      --cyan: #00B4D8;
-      --cyan-bright: #38BDF8;
+      --cyan: #00D8FF;
+      --cyan-bright: #38E4FF;
+      --amber: #FF8C00;
       --ok: #22C55E;
-      --warn: #F59E0B;
+      --warn: #FF8C00;
       --crit: #EF4444;
       --mono: "JetBrains Mono", Consolas, "Courier New", monospace;
       --sans: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -104,20 +105,20 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    a { color: var(--cyan-bright); text-decoration: none; }
+    a { color: var(--cyan); text-decoration: none; }
     a:hover { text-decoration: underline; }
     code {
       font-family: var(--mono);
       font-size: 0.85em;
       background: var(--bg-recessed);
-      border: 1px solid var(--divider);
+      border: 1px solid var(--border);
       padding: 1px 5px;
       border-radius: 2px;
-      color: var(--cyan-bright);
+      color: var(--cyan);
     }
 
     .container {
-      max-width: 1200px;
+      max-width: 1240px;
       margin: 0 auto;
       padding: 0 24px;
     }
@@ -169,13 +170,13 @@
       transition: color 0.15s ease;
     }
     .nav-links a:hover {
-      color: var(--cyan-bright);
+      color: var(--cyan);
       text-decoration: none;
     }
     .version-tag {
       font-family: var(--mono);
       font-size: 11px;
-      color: var(--cyan-bright);
+      color: var(--cyan);
       background: var(--bg-recessed);
       border: 1px solid var(--border);
       padding: 3px 8px;
@@ -184,13 +185,13 @@
 
     /* Hero Section */
     .hero {
-      padding: 44px 0 40px;
+      padding: 40px 0 38px;
       border-bottom: 1px solid var(--divider);
     }
     .hero-grid {
       display: grid;
-      grid-template-columns: 1.05fr 1.25fr;
-      gap: 28px;
+      grid-template-columns: 0.92fr 1.38fr;
+      gap: 24px;
       align-items: start;
     }
     .eyebrow {
@@ -203,30 +204,30 @@
     }
     .hero-title {
       margin: 0 0 14px;
-      font-size: 32px;
+      font-size: 30px;
       line-height: 1.18;
       font-weight: 700;
       letter-spacing: -0.02em;
       color: var(--text-primary);
     }
     .hero-desc {
-      margin: 0 0 22px;
-      font-size: 15px;
+      margin: 0 0 20px;
+      font-size: 14.5px;
       color: var(--text-secondary);
-      max-width: 500px;
+      max-width: 480px;
     }
 
     .cta-stack {
       display: flex;
       flex-direction: column;
       gap: 10px;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: space-between;
-      padding: 11px 16px;
+      padding: 11px 15px;
       border-radius: 2px;
       font-family: var(--mono);
       font-size: 12px;
@@ -241,24 +242,24 @@
       color: var(--text-primary);
     }
     .btn-primary:hover {
-      background: #232B36;
+      background: #232A36;
       border-color: var(--cyan-bright);
     }
     .btn-secondary {
       background: var(--bg-panel);
-      border-color: var(--border);
-      color: var(--text-secondary);
+      border-color: var(--amber);
+      color: var(--text-primary);
     }
     .btn-secondary:hover {
-      border-color: var(--text-muted);
-      color: var(--text-primary);
+      background: #221B12;
     }
     .btn-sub {
       font-size: 10px;
       font-weight: 400;
       color: var(--text-muted);
     }
-    .btn-primary .btn-sub { color: var(--cyan-bright); }
+    .btn-primary .btn-sub { color: var(--cyan); }
+    .btn-secondary .btn-sub { color: var(--amber); }
 
     .spec-strip {
       display: grid;
@@ -268,24 +269,24 @@
     .spec-cell {
       background: var(--bg-panel);
       border: 1px solid var(--border);
-      padding: 10px 12px;
+      padding: 9px 10px;
       border-radius: 2px;
     }
     .spec-cell .k {
       display: block;
       font-family: var(--mono);
-      font-size: 10px;
+      font-size: 9.5px;
       color: var(--text-muted);
       margin-bottom: 2px;
     }
     .spec-cell .v {
       font-family: var(--mono);
-      font-size: 12px;
+      font-size: 11.5px;
       font-weight: 600;
       color: var(--text-primary);
     }
 
-    /* Authentic Instrument Preview Mockup */
+    /* Authentic Industrial Instrument Replica */
     .instrument-frame {
       background: var(--bg-panel);
       border: 1px solid var(--border);
@@ -299,45 +300,68 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
       font-family: var(--mono);
-      font-size: 11px;
+      font-size: 10.5px;
+      flex-wrap: wrap;
     }
     .inst-header .left {
       display: flex;
       align-items: center;
       gap: 8px;
       color: var(--text-primary);
-      font-weight: 600;
+      font-weight: 700;
+    }
+    .inst-header .mid {
+      background: var(--bg-recessed);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      font-size: 9.5px;
+      color: var(--cyan);
+      font-variant-numeric: tabular-nums;
+      border-radius: 2px;
     }
     .inst-header .right {
       display: flex;
-      gap: 8px;
-      font-size: 10px;
+      gap: 6px;
+      font-size: 9.5px;
+      align-items: center;
     }
     .tag-ok {
       color: var(--ok);
       background: var(--bg-recessed);
-      border: 1px solid var(--divider);
+      border: 1px solid var(--ok);
       padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: 700;
     }
     .tag-cyan {
-      color: var(--cyan-bright);
+      color: var(--cyan);
       background: var(--bg-recessed);
-      border: 1px solid var(--divider);
+      border: 1px solid var(--border);
       padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: 700;
     }
-    .tag-warn {
-      color: var(--warn);
+    .tag-amber {
+      color: var(--amber);
       background: var(--bg-recessed);
-      border: 1px solid var(--warn);
+      border: 1px solid var(--amber);
       padding: 2px 6px;
+      border-radius: 2px;
+      font-weight: 700;
     }
     .inst-body {
       display: grid;
-      grid-template-columns: 1fr 1.05fr;
-      gap: 10px;
-      padding: 10px;
+      grid-template-columns: 0.96fr 1.14fr;
+      gap: 8px;
+      padding: 8px;
       background: var(--bg-base);
+    }
+    .col-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
     .subpanel {
       background: var(--bg-panel);
@@ -347,7 +371,7 @@
     .subpanel-hdr {
       background: var(--bg-header);
       border-bottom: 1px solid var(--border);
-      padding: 6px 10px;
+      padding: 5px 9px;
       font-family: var(--mono);
       font-size: 10px;
       font-weight: 700;
@@ -360,15 +384,16 @@
       width: 100%;
       border-collapse: collapse;
       font-family: var(--mono);
-      font-size: 10.5px;
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
     }
     .sensor-tbl th {
       background: var(--bg-recessed);
       color: var(--text-muted);
       font-weight: 500;
       text-align: left;
-      padding: 4px 8px;
-      font-size: 9.5px;
+      padding: 3px 8px;
+      font-size: 9px;
       border-bottom: 1px solid var(--divider);
     }
     .sensor-tbl th:not(:first-child),
@@ -377,65 +402,178 @@
     }
     .sensor-tbl tr.grp td {
       background: var(--divider);
-      color: var(--cyan-bright);
+      color: var(--cyan);
       font-weight: 700;
-      font-size: 9.5px;
-      padding: 4px 8px;
+      font-size: 9px;
+      padding: 3px 8px;
       text-align: left;
     }
     .sensor-tbl td {
-      padding: 4px 8px;
+      padding: 3px 8px;
       border-bottom: 1px solid #16191F;
       color: var(--text-secondary);
     }
     .sensor-tbl td.val { color: var(--text-primary); font-weight: 600; }
-    .sensor-tbl td.cyan { color: var(--cyan-bright); font-weight: 600; }
-    .sensor-tbl td.warn { color: var(--warn); font-weight: 600; }
+    .sensor-tbl td.cyan { color: var(--cyan); font-weight: 600; }
     .sensor-tbl td.muted { color: var(--text-muted); }
 
-    .ctrl-stack {
-      padding: 8px;
+    /* Fan Array Rows */
+    .fan-list {
+      padding: 7px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
     }
-    .ctrl-box {
+    .fan-row {
       background: var(--bg-recessed);
-      border: 1px solid var(--divider);
-      padding: 8px;
+      border: 1px solid var(--border);
       border-radius: 2px;
+      padding: 6px 8px;
+    }
+    .fan-row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 10px;
+      margin-bottom: 5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .fan-name { color: var(--text-primary); font-weight: 600; }
+    .fan-rpm { color: var(--cyan); font-weight: 700; }
+    .seg-meter {
+      display: grid;
+      grid-template-columns: repeat(20, 1fr);
+      gap: 2px;
+      background: var(--bg-recessed);
+      border: 1px solid var(--border);
+      padding: 2px;
+      height: 11px;
+    }
+    .seg-cell {
+      background: var(--divider);
+      height: 100%;
+    }
+    .seg-cell.lit { background: var(--cyan); }
+    .fan-note {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      padding-top: 2px;
+    }
+
+    /* Side-by-side MHz/GHz Clock Tuners */
+    .tuner-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px;
+      padding: 7px;
+    }
+    .tuner-card {
+      background: var(--bg-recessed);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 7px;
+    }
+    .tuner-card-hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--divider);
+      margin-bottom: 6px;
+    }
+    .tuner-readouts {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      padding: 5px 6px;
+      margin-bottom: 6px;
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .tuner-cell .lbl {
+      display: block;
+      font-size: 8.5px;
+      color: var(--text-muted);
+    }
+    .tuner-cell .num {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: right;
+    }
+    .tuner-cell .num.cyan { color: var(--cyan); }
+    .tuner-cell .num.amber { color: var(--amber); }
+    .sp-line {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--text-secondary);
+      margin-bottom: 3px;
+    }
+    .sp-line strong { color: var(--amber); }
+    .amber-range {
+      width: 100%;
+      accent-color: var(--amber);
+      height: 4px;
+      margin: 2px 0 6px;
+      cursor: pointer;
+    }
+    .btn-pair {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 5px;
+    }
+    .mini-btn {
+      font-family: var(--mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      padding: 4px 6px;
+      border-radius: 2px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      color: var(--text-secondary);
+    }
+    .mini-btn.apply {
+      background: var(--slate);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+    .mini-btn:hover { filter: brightness(1.12); }
+
+    .ctrl-box {
+      padding: 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
     }
     .ctrl-lbl {
       display: flex;
       justify-content: space-between;
       font-family: var(--mono);
-      font-size: 9.5px;
+      font-size: 9px;
       color: var(--text-secondary);
-      margin-bottom: 5px;
     }
-    .ctrl-lbl strong { color: var(--cyan-bright); }
-    .bar-track {
-      height: 6px;
-      background: var(--border);
-      position: relative;
-      margin-bottom: 6px;
-    }
-    .bar-fill {
-      height: 100%;
-      background: var(--cyan);
-      width: 95%;
-    }
+    .ctrl-lbl strong { color: var(--cyan); }
     .seg-row {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       border: 1px solid var(--border);
-      background: var(--bg-panel);
+      background: var(--bg-recessed);
       font-family: var(--mono);
-      font-size: 9.5px;
+      font-size: 9px;
     }
     .seg-row.two { grid-template-columns: repeat(2, 1fr); }
     .seg-btn {
-      padding: 4px 6px;
+      padding: 4px 5px;
       text-align: center;
       color: var(--text-secondary);
       cursor: pointer;
@@ -445,16 +583,10 @@
     .seg-btn:last-child { border-right: none; }
     .seg-btn.active {
       background: var(--cyan);
-      color: #0B1014;
+      color: #0D0F12;
       font-weight: 700;
     }
 
-    .curve-preview {
-      position: relative;
-      background: var(--bg-base);
-      border: 1px solid var(--border);
-      height: 92px;
-    }
     .inst-footer {
       background: var(--bg-header);
       border-top: 1px solid var(--border);
@@ -474,7 +606,7 @@
       font-size: 13px;
       font-weight: 700;
       letter-spacing: 0.06em;
-      color: var(--cyan-bright);
+      color: var(--cyan);
       text-transform: uppercase;
       margin: 0 0 6px;
     }
@@ -484,7 +616,6 @@
       font-size: 14px;
     }
 
-    /* Technical Table */
     .tech-table {
       width: 100%;
       border-collapse: collapse;
@@ -515,7 +646,6 @@
       white-space: nowrap;
     }
 
-    /* Two Column Install */
     .two-col {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -551,12 +681,13 @@
     .codeblock {
       margin-top: 12px;
       background: var(--bg-recessed);
-      border: 1px solid var(--divider);
+      border: 1px solid var(--border);
       padding: 10px 12px;
       font-family: var(--mono);
-      font-size: 12px;
+      font-size: 11.5px;
       color: var(--text-primary);
       overflow-x: auto;
+      border-radius: 2px;
     }
 
     footer {
@@ -573,8 +704,8 @@
       gap: 12px;
     }
 
-    @media (max-width: 960px) {
-      .hero-grid, .inst-body, .two-col {
+    @media (max-width: 1024px) {
+      .hero-grid, .inst-body, .two-col, .tuner-grid {
         grid-template-columns: 1fr;
       }
       .spec-strip { grid-template-columns: 1fr; }
@@ -586,18 +717,17 @@
   <header class="topbar">
     <div class="container topbar-inner">
       <div class="brand">
-        <!-- Razor-sharp Victus 'V' Emblem matching main.py & assets/hanko_victus.ico -->
         <svg width="42" height="36" viewBox="0 0 48 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Victus V Emblem">
-          <polyline points="1,9 1,1 9,1" stroke="#262A33" stroke-width="1" />
-          <polyline points="39,39 47,39 47,31" stroke="#262A33" stroke-width="1" />
-          <polygon points="5,7 17,7 24,23 31,7 43,7 27.5,36 20.5,36" fill="#1E242D" />
-          <polygon points="7.5,5 15.5,5 24,24.5 24,34.5 21.5,34.5" fill="#00B4D8" />
-          <polygon points="40.5,5 32.5,5 24,24.5 24,34.5 26.5,34.5" fill="#38BDF8" />
-          <line x1="24" y1="24.5" x2="24" y2="35" stroke="#15181E" stroke-width="1" />
+          <polyline points="1,9 1,1 9,1" stroke="#282D37" stroke-width="1" />
+          <polyline points="39,39 47,39 47,31" stroke="#282D37" stroke-width="1" />
+          <polygon points="5,7 17,7 24,23 31,7 43,7 27.5,36 20.5,36" fill="#1C2029" />
+          <polygon points="7.5,5 15.5,5 24,24.5 24,34.5 21.5,34.5" fill="#00D8FF" />
+          <polygon points="40.5,5 32.5,5 24,24.5 24,34.5 26.5,34.5" fill="#38E4FF" />
+          <line x1="24" y1="24.5" x2="24" y2="35" stroke="#111419" stroke-width="1" />
         </svg>
         <div class="brand-text">
           <div class="brand-title">HANKO // THERMAL SUITE</div>
-          <span>HARDWARE TELEMETRY &amp; POWER POLICY ENGINE</span>
+          <span>PAWNIO MULTI-FAN TELEMETRY &amp; DIRECT CLOCK TUNER</span>
         </div>
       </div>
 
@@ -606,7 +736,7 @@
         <a href="#telemetry">Architecture</a>
         <a href="#install">Deployment</a>
         <a href="https://github.com/hankobanko391/HANKO-Thermal-Suite" target="_blank" rel="noopener">Source</a>
-        <a href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/tag/v1.0.0" class="version-tag" target="_blank" rel="noopener">v1.0.0</a>
+        <a href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/latest" class="version-tag" target="_blank" rel="noopener">v2.0.0</a>
       </nav>
     </div>
   </header>
@@ -615,123 +745,186 @@
     <section class="hero">
       <div class="container hero-grid">
         <div>
-          <div class="eyebrow">WINDOWS 10 / 11 X64 &bull; ZERO FABRICATED SENSORS</div>
-          <h1 class="hero-title">HANKO Thermal Suite &mdash; Direct thermal policy &amp; genuine hardware telemetry.</h1>
+          <div class="eyebrow">WINDOWS 10 / 11 X64 &bull; PAWNIO &bull; ZERO FABRICATED SENSORS</div>
+          <h1 class="hero-title">HANKO Thermal Suite v2.0 &mdash; Multi-fan RPM array &amp; MHz/GHz clock tuner.</h1>
           <p class="hero-desc">
             Engineered by <a href="https://github.com/hankobanko391" target="_blank" rel="noopener"><strong>Yassin Haitham</strong> (<code>hankobanko391</code>)</a>.
-            A flat matte-charcoal desktop instrument inspired by <code>FanControl</code> and <code>HWiNFO64</code>.
-            Reads live CPU, GPU, and ACPI thermal sensors, applies real <code>powercfg</code> processor boost and
-            cooling policies, and verifies cooling response with an integrated multi-core stress generator.
+            A precision matte-charcoal desktop instrument modeled after <code>HWiNFO64</code> and <code>FanControl</code>.
+            Scans Motherboard, SuperIO, EC, and GPU nodes via PawnIO-compatible <code>LibreHardwareMonitorLib.dll</code>,
+            locks NVIDIA GPU clocks in MHz, caps CPU frequency in GHz via <code>PROCFREQMAX</code>, and runs a multi-core thermal load test.
           </p>
 
           <div class="cta-stack">
-            <a class="btn btn-primary" href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/download/v1.0.0/HANKO_Portable_Setup.zip">
-              <span>DOWNLOAD PORTABLE SETUP (.ZIP)</span>
-              <span class="btn-sub">setup_and_run.bat &bull; Smart App Control Immune</span>
+            <a class="btn btn-primary" href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/latest/download/HANKO_Portable_Setup.zip">
+              <span>DOWNLOAD PORTABLE SETUP v2.0 (.ZIP)</span>
+              <span class="btn-sub">setup_and_run.bat + LHM PawnIO &bull; SAC Immune</span>
             </a>
-            <a class="btn btn-secondary" href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/download/v1.0.0/HANKO_Thermal_Suite.exe">
-              <span>DOWNLOAD STANDALONE BINARY (.EXE)</span>
+            <a class="btn btn-secondary" href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/latest/download/HANKO_Thermal_Suite.exe">
+              <span>DOWNLOAD STANDALONE BINARY v2.0 (.EXE)</span>
               <span class="btn-sub">PyInstaller --onefile --uac-admin</span>
             </a>
           </div>
 
           <div class="spec-strip">
             <div class="spec-cell">
-              <span class="k">TELEMETRY BUS</span>
-              <span class="v">CIM + NVSMI + PSUTIL</span>
+              <span class="k">FAN ENGINE</span>
+              <span class="v">LHM PAWNIO + CLR</span>
             </div>
             <div class="spec-cell">
-              <span class="k">POWER ENGINE</span>
-              <span class="v">POWERCFG AC+DC</span>
+              <span class="k">GPU CLOCK LOCK</span>
+              <span class="v">800&ndash;1850 MHz (15)</span>
             </div>
             <div class="spec-cell">
-              <span class="k">OEM EC LOCKS</span>
-              <span class="v">REPORTED HONESTLY</span>
+              <span class="k">CPU FREQ CAP</span>
+              <span class="v">1.80&ndash;4.50 GHz (0.1)</span>
             </div>
           </div>
         </div>
 
-        <!-- Precision Instrument UI Replica -->
-        <div class="instrument-frame" aria-label="HANKO Thermal Suite UI Preview">
+        <!-- Precision Industrial Instrument UI Preview -->
+        <div class="instrument-frame" aria-label="HANKO Thermal Suite v2.0 UI Preview">
           <div class="inst-header">
             <div class="left">
               <svg width="20" height="17" viewBox="0 0 48 40" fill="none">
-                <polygon points="5,7 17,7 24,23 31,7 43,7 27.5,36 20.5,36" fill="#1E242D" />
-                <polygon points="7.5,5 15.5,5 24,24.5 24,34.5 21.5,34.5" fill="#00B4D8" />
-                <polygon points="40.5,5 32.5,5 24,24.5 24,34.5 26.5,34.5" fill="#38BDF8" />
+                <polygon points="5,7 17,7 24,23 31,7 43,7 27.5,36 20.5,36" fill="#1C2029" />
+                <polygon points="7.5,5 15.5,5 24,24.5 24,34.5 21.5,34.5" fill="#00D8FF" />
+                <polygon points="40.5,5 32.5,5 24,24.5 24,34.5 26.5,34.5" fill="#38E4FF" />
               </svg>
-              <span>HANKO // THERMAL SUITE</span>
+              <span>HANKO // THERMAL SUITE v2.0</span>
             </div>
+            <div class="mid">CPU: 61.4&deg;C 3.48GHz | GPU: 47&deg;C 1366MHz | FANS: 2</div>
             <div class="right">
-              <span class="tag-ok">PRIV: ADMIN</span>
-              <span class="tag-cyan">PLAN: HIGH PERFORMANCE</span>
+              <span class="tag-ok">ADMIN PRIVILEGE: VERIFIED</span>
+              <span class="tag-cyan">SYS: LIVE</span>
             </div>
           </div>
 
           <div class="inst-body">
-            <div class="subpanel">
-              <div class="subpanel-hdr">
-                <span>LIVE HARDWARE SENSOR TREE</span>
-                <span style="color:var(--text-muted);font-weight:400;">1.0s POLL</span>
+            <div class="col-stack">
+              <div class="subpanel">
+                <div class="subpanel-hdr">
+                  <span>LIVE HARDWARE SENSOR TREE</span>
+                  <span style="color:var(--text-muted);font-weight:400;">1.0s POLL</span>
+                </div>
+                <table class="sensor-tbl">
+                  <thead>
+                    <tr><th>SENSOR</th><th>CURRENT</th><th>MIN</th><th>MAX</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr class="grp"><td colspan="4">CPU // SYSTEM PROCESSOR</td></tr>
+                    <tr><td>Package / ACPI Temp</td><td class="cyan">61.4 &deg;C</td><td>44.0&deg;</td><td>79.2&deg;</td></tr>
+                    <tr><td>Core Clock (Dynamic)</td><td class="cyan">3.48 GHz</td><td>1.85G</td><td>4.10G</td></tr>
+                    <tr><td>Total CPU Load</td><td class="val">34.2 %</td><td>4.1%</td><td>99.8%</td></tr>
+                    <tr class="grp"><td colspan="4">GPU // NVIDIA GEFORCE RTX 2050</td></tr>
+                    <tr><td>GPU Core Temp</td><td class="cyan">47 &deg;C</td><td>42&deg;</td><td>68&deg;</td></tr>
+                    <tr><td>GPU Core Clock</td><td class="cyan">1366 MHz</td><td>607M</td><td>1845M</td></tr>
+                    <tr><td>GPU Power Draw</td><td class="muted">N/A (No PMIC)</td><td>--</td><td>--</td></tr>
+                  </tbody>
+                </table>
               </div>
-              <table class="sensor-tbl">
-                <thead>
-                  <tr><th>SENSOR</th><th>CURRENT</th><th>MIN</th><th>MAX</th></tr>
-                </thead>
-                <tbody>
-                  <tr class="grp"><td colspan="4">CPU // SYSTEM PROCESSOR</td></tr>
-                  <tr><td>Package / ACPI Temp</td><td class="cyan">61.4 &deg;C</td><td>44.0&deg;</td><td>79.2&deg;</td></tr>
-                  <tr><td>Core Clock (Dynamic)</td><td class="val">3.48 GHz</td><td>1.85G</td><td>4.10G</td></tr>
-                  <tr><td>Total CPU Load</td><td class="val">34.2 %</td><td>4.1%</td><td>99.8%</td></tr>
-                  <tr class="grp"><td colspan="4">GPU // NVIDIA GEFORCE GTX 1050</td></tr>
-                  <tr><td>GPU Core Temp</td><td class="cyan">47 &deg;C</td><td>42&deg;</td><td>68&deg;</td></tr>
-                  <tr><td>GPU Core Clock</td><td class="val">1366 MHz</td><td>607M</td><td>1493M</td></tr>
-                  <tr><td>GPU Power Draw</td><td class="muted">N/A (Not Exposed)</td><td>--</td><td>--</td></tr>
-                  <tr class="grp"><td colspan="4">COOLING // DETECTED FAN RPMS</td></tr>
-                  <tr><td>Chassis / CPU Fan</td><td class="warn">N/A (OEM EC Locked)</td><td>--</td><td>--</td></tr>
-                </tbody>
-              </table>
+
+              <div class="subpanel">
+                <div class="subpanel-hdr">
+                  <span>COOLING &amp; FAN ARRAY</span>
+                  <span class="tag-cyan">DETECTED FANS: 2</span>
+                </div>
+                <div class="fan-list">
+                  <div class="fan-row">
+                    <div class="fan-row-top">
+                      <span class="fan-name">[EC] CPU Blower Fan</span>
+                      <span class="fan-rpm">2840 RPM &nbsp;|&nbsp; 51.6 %</span>
+                    </div>
+                    <div class="seg-meter" data-lit="10"></div>
+                  </div>
+                  <div class="fan-row">
+                    <div class="fan-row-top">
+                      <span class="fan-name">[GPU] RTX 2050 Fan</span>
+                      <span class="fan-rpm">3120 RPM &nbsp;|&nbsp; 56.7 %</span>
+                    </div>
+                    <div class="seg-meter" data-lit="11"></div>
+                  </div>
+                  <div class="fan-note">On firmware-locked HP laptops: shows <code>EC TELEMETRY LOCKED BY HP BIOS</code> cleanly with 0 crashes.</div>
+                </div>
+              </div>
             </div>
 
-            <div class="subpanel">
-              <div class="subpanel-hdr">
-                <span>DIRECT HARDWARE CONTROLS</span>
-                <span style="color:var(--cyan-bright);font-weight:400;">INTERACTIVE</span>
-              </div>
-              <div class="ctrl-stack">
-                <div class="ctrl-box">
-                  <div class="ctrl-lbl">
-                    <span>PROCTHROTTLEMAX</span>
-                    <strong id="pv-pct">95%</strong>
+            <div class="col-stack">
+              <div class="subpanel">
+                <div class="subpanel-hdr">
+                  <span>CLOCK TUNING &amp; OVERCLOCKING</span>
+                  <span class="tag-amber">DIRECT FREQUENCY CONTROL</span>
+                </div>
+                <div class="tuner-grid">
+                  <div class="tuner-card">
+                    <div class="tuner-card-hdr">
+                      <span>GPU CORE CLOCK (MHz)</span>
+                      <span id="pv-gpu-badge" style="color:var(--cyan);">STOCK</span>
+                    </div>
+                    <div class="tuner-readouts">
+                      <div class="tuner-cell">
+                        <span class="lbl">LIVE CLOCK</span>
+                        <span class="num cyan">1366 MHz</span>
+                      </div>
+                      <div class="tuner-cell">
+                        <span class="lbl">TARGET CLOCK</span>
+                        <span class="num amber" id="pv-gpu-target">STOCK</span>
+                      </div>
+                    </div>
+                    <div class="sp-line">
+                      <span>SETPOINT [15 MHz]</span>
+                      <strong id="pv-gpu-sp">1505 MHz</strong>
+                    </div>
+                    <input id="pv-gpu-slider" class="amber-range" type="range" min="800" max="1850" step="15" value="1505" />
+                    <div class="btn-pair">
+                      <button type="button" class="mini-btn apply" id="pv-gpu-apply">APPLY</button>
+                      <button type="button" class="mini-btn" id="pv-gpu-reset">RESET STOCK</button>
+                    </div>
                   </div>
-                  <div class="bar-track"><div class="bar-fill" id="pv-bar"></div></div>
-                  <div class="ctrl-lbl" style="margin-top:4px;"><span>PERFBOOSTMODE</span></div>
+
+                  <div class="tuner-card">
+                    <div class="tuner-card-hdr">
+                      <span>CPU MAX FREQUENCY (GHz)</span>
+                      <span id="pv-cpu-badge" style="color:var(--cyan);">TURBO AUTO</span>
+                    </div>
+                    <div class="tuner-readouts">
+                      <div class="tuner-cell">
+                        <span class="lbl">LIVE CLOCK</span>
+                        <span class="num cyan">3.48 GHz</span>
+                      </div>
+                      <div class="tuner-cell">
+                        <span class="lbl">TARGET CLOCK</span>
+                        <span class="num amber" id="pv-cpu-target">AUTO</span>
+                      </div>
+                    </div>
+                    <div class="sp-line">
+                      <span>SETPOINT [0.10 GHz]</span>
+                      <strong id="pv-cpu-sp">3.20 GHz</strong>
+                    </div>
+                    <input id="pv-cpu-slider" class="amber-range" type="range" min="1.80" max="4.50" step="0.10" value="3.20" />
+                    <div class="btn-pair">
+                      <button type="button" class="mini-btn apply" id="pv-cpu-apply">APPLY</button>
+                      <button type="button" class="mini-btn" id="pv-cpu-reset">RESET STOCK</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="subpanel">
+                <div class="subpanel-hdr">
+                  <span>WINDOWS THERMAL POLICY [POWERCFG]</span>
+                  <span style="color:var(--cyan);font-weight:400;">AC + DC</span>
+                </div>
+                <div class="ctrl-box">
+                  <div class="ctrl-lbl"><span>PERFBOOSTMODE</span><strong id="pv-boost-val">Efficient Enabled</strong></div>
                   <div class="seg-row" data-group="boost">
                     <div class="seg-btn" data-val="Disabled (Cool/Quiet)">Disabled</div>
                     <div class="seg-btn active" data-val="Efficient Enabled">Efficient</div>
                     <div class="seg-btn" data-val="Aggressive (Full Boost)">Aggressive</div>
                   </div>
-                  <div class="ctrl-lbl" style="margin-top:6px;"><span>SYSCOOLPOL</span></div>
+                  <div class="ctrl-lbl" style="margin-top:3px;"><span>SYSCOOLPOL</span><strong id="pv-cool-val">Active</strong></div>
                   <div class="seg-row two" data-group="cool">
                     <div class="seg-btn" data-val="Passive (Throttle First)">Passive</div>
                     <div class="seg-btn active" data-val="Active (Fan Ramp First)">Active</div>
-                  </div>
-                </div>
-
-                <div class="ctrl-box">
-                  <div class="ctrl-lbl">
-                    <span>PWM FAN CURVE EDITOR</span>
-                    <span class="tag-warn">LOCKED BY OEM BIOS EC</span>
-                  </div>
-                  <div class="curve-preview">
-                    <svg width="100%" height="100%" viewBox="0 0 260 92" preserveAspectRatio="none">
-                      <line x1="20" y1="22" x2="250" y2="22" stroke="#1F232B" stroke-width="1" />
-                      <line x1="20" y1="46" x2="250" y2="46" stroke="#1F232B" stroke-width="1" />
-                      <line x1="20" y1="70" x2="250" y2="70" stroke="#1F232B" stroke-width="1" />
-                      <polyline points="20,70 55,66 105,54 155,36 205,18 250,10" fill="none" stroke="#4B5563" stroke-width="2" />
-                      <rect x="40" y="34" width="180" height="22" fill="#181B20" stroke="#F59E0B" stroke-width="1" />
-                      <text x="130" y="48" fill="#F59E0B" font-family="JetBrains Mono, monospace" font-size="9" font-weight="700" text-anchor="middle">LOCKED BY OEM BIOS EC</text>
-                    </svg>
                   </div>
                 </div>
               </div>
@@ -739,7 +932,7 @@
           </div>
 
           <div class="inst-footer" id="pv-console">
-            [20:41:02] powercfg: PERFBOOSTMODE=3 (Efficient Enabled) applied [AC+DC]
+            [22:15:00] HANKO v2.0 initialized: LibreHardwareMonitorLib (PawnIO) + nvidia-smi + powercfg
           </div>
         </div>
       </div>
@@ -748,46 +941,46 @@
     <section class="section" id="telemetry">
       <div class="container">
         <h2 class="section-title">01 // Hardware Interface Specification</h2>
-        <p class="section-sub">Every metric and control maps directly to an OS power interface, WMI/CIM namespace, or NVIDIA driver API.</p>
+        <p class="section-sub">Every readout and tuning lever maps directly to PawnIO LibreHardwareMonitor, NVIDIA SMI, Windows powercfg, or CIM/WMI.</p>
 
         <table class="tech-table">
           <thead>
             <tr>
               <th>Subsystem</th>
-              <th>Native Interface / GUID</th>
-              <th>Behavior on Locked OEM Laptops</th>
+              <th>Native Interface / Library</th>
+              <th>Behavior &amp; OEM EC Fallback</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>Maximum Processor State</td>
-              <td><code>SUB_PROCESSOR / PROCTHROTTLEMAX</code> (<code>bc5038f7-23e0-4960-96da-33abaf5935ec</code>)</td>
-              <td>Fully active (50%&ndash;100% slider applied live to AC &amp; DC).</td>
+              <td>Multi-Fan Telemetry Array</td>
+              <td><code>fan_engine.py</code> &rarr; <code>LibreHardwareMonitorLib.dll</code> (PawnIO) via <code>pythonnet</code></td>
+              <td>Scans Motherboard, SuperIO, EC, Controller, and GPU <code>SensorType.Fan</code> channels; displays <code>DETECTED FANS: N</code> with RPM + % load bars, or <code>EC TELEMETRY LOCKED BY HP BIOS</code> if firmware blocks readouts.</td>
             </tr>
             <tr>
-              <td>Processor Boost Mode</td>
-              <td><code>SUB_PROCESSOR / PERFBOOSTMODE</code> (<code>be337238-0d82-4146-a960-4f3749d470c7</code>)</td>
-              <td>Switches between <code>0</code> Disabled, <code>3</code> Efficient Enabled, <code>2</code> Aggressive.</td>
+              <td>GPU Core Clock Lock (MHz)</td>
+              <td><code>clock_tuner.py</code> &rarr; <code>nvidia-smi --lock-gpu-clocks</code> / <code>--reset-gpu-clocks</code></td>
+              <td>Locks RTX 2050 / NVIDIA GPU clock across <code>800&ndash;1850 MHz</code> (step <code>15 MHz</code>) silently via <code>CREATE_NO_WINDOW</code>, or restores stock VBIOS scaling.</td>
             </tr>
             <tr>
-              <td>System Cooling Policy</td>
-              <td><code>SUB_PROCESSOR / SYSCOOLPOL</code> (<code>94d3a615-a899-4ac5-ae2b-e4d8f634367f</code>)</td>
-              <td>Switches OS fan-ramp preference between <code>0</code> Passive and <code>1</code> Active.</td>
+              <td>CPU Max Frequency (GHz)</td>
+              <td><code>clock_tuner.py</code> &rarr; <code>powercfg SUB_PROCESSOR PROCFREQMAX</code></td>
+              <td>Converts <code>1.80&ndash;4.50 GHz</code> (step <code>0.10 GHz</code>) to integer MHz across AC+DC on <code>SCHEME_CURRENT</code>; resets to <code>0</code> for Turbo Auto.</td>
             </tr>
             <tr>
-              <td>CPU Temp &amp; Turbo Clock</td>
-              <td><code>MSAcpi_ThermalZoneTemperature</code>, <code>ThermalZoneInformation</code>, <code>ProcessorInformation</code>, optional LHM WMI</td>
-              <td>Falls back across real CIM counters; reports <code>N/A (Sensor Locked)</code> if firmware omits zones.</td>
+              <td>Thermal &amp; Boost Policies</td>
+              <td><code>PROCTHROTTLEMAX</code>, <code>PERFBOOSTMODE</code>, <code>SYSCOOLPOL</code></td>
+              <td>Live AC+DC slider (<code>50%&ndash;100%</code>), boost mode toggles (Disabled / Efficient / Aggressive), and Active/Passive cooling switch.</td>
             </tr>
             <tr>
-              <td>GPU Telemetry &amp; PWM</td>
-              <td><code>nvidia-smi</code> CSV + direct <code>nvml.dll</code> fan control probe</td>
-              <td>Unlocks manual/curve PWM on supported desktop GPUs; shows <code>Locked by OEM BIOS EC</code> and <code>N/A (OEM EC Locked)</code> on EC-locked laptops.</td>
+              <td>CPU Temp &amp; Live Clocks</td>
+              <td><code>MSAcpi_ThermalZoneTemperature</code>, <code>ThermalZoneInformation</code>, <code>ProcessorInformation</code></td>
+              <td>Tracks live Turbo frequency via <code>% Processor Performance</code> and falls back honestly to <code>N/A (Locked)</code> if ACPI zones are disabled.</td>
             </tr>
             <tr>
               <td>Thermal Load Verification</td>
-              <td>Multi-process floating-point ALU burn (<code>multiprocessing.Process</code>)</td>
-              <td>Runs at 25% / 50% / 75% / 100% logical threads to test real cooling ramp &amp; temp delta.</td>
+              <td>Multi-process floating-point ALU burn (<code>stress_worker.py</code>)</td>
+              <td>Runs across 25% / 50% / 75% / 100% logical threads to verify clock stability, cooling ramp, and temperature delta.</td>
             </tr>
           </tbody>
         </table>
@@ -797,7 +990,7 @@
     <section class="section" id="install">
       <div class="container">
         <h2 class="section-title">02 // Deployment &amp; Execution</h2>
-        <p class="section-sub">Choose the portable Python launcher (recommended on Windows 11 Smart App Control systems) or the standalone PyInstaller executable.</p>
+        <p class="section-sub">Bundled with PawnIO-compatible <code>LibreHardwareMonitorLib.dll</code> for Windows 10 and Windows 11.</p>
 
         <div class="two-col">
           <div class="card">
@@ -806,10 +999,10 @@
               <span class="tag-ok">SMART APP CONTROL IMMUNE</span>
             </div>
             <ol>
-              <li>Download <code>HANKO_Portable_Setup.zip</code> from Releases and extract it.</li>
+              <li>Download <code>HANKO_Portable_Setup.zip</code> from the latest GitHub Release and extract it.</li>
               <li>Double-click <code>setup_and_run.bat</code>.</li>
-              <li>Accept the Administrator UAC prompt (required for <code>powercfg</code>).</li>
-              <li>Missing packages (<code>customtkinter</code>, <code>psutil</code>, <code>pillow</code>) install automatically and a <strong>HANKO Thermal Suite</strong> Desktop shortcut with the Victus V icon is created.</li>
+              <li>Accept the Administrator UAC prompt (required for <code>powercfg</code>, <code>nvidia-smi</code> clock locks, and hardware sensors).</li>
+              <li>Dependencies (<code>customtkinter</code>, <code>psutil</code>, <code>pillow</code>, <code>pythonnet</code>) install automatically and a Desktop shortcut is created.</li>
             </ol>
             <div class="codeblock">git clone https://github.com/hankobanko391/HANKO-Thermal-Suite.git
 cd HANKO-Thermal-Suite
@@ -822,13 +1015,11 @@ cd HANKO-Thermal-Suite
               <span class="tag-cyan">NO PYTHON REQUIRED</span>
             </div>
             <ol>
-              <li>Download <code>HANKO_Thermal_Suite.exe</code> from Release <code>v1.0.0</code>.</li>
-              <li>Run the binary (built with <code>--onefile --windowed --uac-admin</code>).</li>
-              <li>If Windows Smart App Control blocks unsigned executables on your PC, switch to <code>HANKO_Portable_Setup.zip</code>.</li>
+              <li>Download <code>HANKO_Thermal_Suite.exe</code> from Release <code>v2.0.0</code>.</li>
+              <li>Launch the executable (manifest enforces <code>--uac-admin</code> and bundles <code>LibreHardwareMonitorLib.dll</code>).</li>
+              <li>If Windows Smart App Control blocks unsigned executables on your system, use <code>HANKO_Portable_Setup.zip</code>.</li>
             </ol>
-            <div class="codeblock">pyinstaller --noconfirm --clean --onefile --windowed --uac-admin ^
-  --collect-all customtkinter --name HANKO_Thermal_Suite ^
-  --icon assets\hanko_victus.ico main.py</div>
+            <div class="codeblock">powershell -NoProfile -ExecutionPolicy Bypass -File .\build_release.ps1</div>
           </div>
         </div>
       </div>
@@ -838,13 +1029,13 @@ cd HANKO-Thermal-Suite
   <footer>
     <div class="container footer-inner">
       <span>
-        HANKO // THERMAL SUITE v1.0.0 &bull; MIT LICENSE &bull;
+        HANKO // THERMAL SUITE v2.0.0 &bull; MIT LICENSE &bull;
         Engineered by <a href="https://github.com/hankobanko391" target="_blank" rel="noopener">Yassin Haitham (hankobanko391)</a>
       </span>
       <span>
         <a href="https://hankobanko391.github.io/">Portfolio Hub</a> &middot;
         <a href="https://github.com/hankobanko391/HANKO-Thermal-Suite" target="_blank" rel="noopener">GitHub Repo</a> &middot;
-        <a href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/tag/v1.0.0" target="_blank" rel="noopener">Release v1.0.0</a> &middot;
+        <a href="https://github.com/hankobanko391/HANKO-Thermal-Suite/releases/latest" target="_blank" rel="noopener">Releases</a> &middot;
         <a href="https://hankobanko391.github.io/BANKO-Performance-Monitor/">BANKO Monitor</a> &middot;
         <a href="https://hankobanko391.github.io/BANKO-Safe-OC-Tuners/">BANKO Tuner</a>
       </span>
@@ -852,25 +1043,75 @@ cd HANKO-Thermal-Suite
   </footer>
 
   <script>
-    // Subtle interactive demo behavior for preview segments
+    // Render flat 20-segment meters in the instrument preview
+    document.querySelectorAll('.seg-meter').forEach(meter => {
+      const lit = parseInt(meter.dataset.lit || '0', 10);
+      for (let i = 0; i < 20; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'seg-cell' + (i < lit ? ' lit' : '');
+        meter.appendChild(cell);
+      }
+    });
+
+    const out = document.getElementById('pv-console');
+    const gpuSlider = document.getElementById('pv-gpu-slider');
+    const gpuSp = document.getElementById('pv-gpu-sp');
+    const gpuTarget = document.getElementById('pv-gpu-target');
+    const gpuBadge = document.getElementById('pv-gpu-badge');
+
+    if (gpuSlider) {
+      gpuSlider.addEventListener('input', () => {
+        gpuSp.textContent = `${gpuSlider.value} MHz`;
+      });
+      document.getElementById('pv-gpu-apply').addEventListener('click', () => {
+        gpuTarget.textContent = `${gpuSlider.value} MHz`;
+        gpuBadge.textContent = 'LOCKED';
+        gpuBadge.style.color = '#FF8C00';
+        out.textContent = `[preview] nvidia-smi --lock-gpu-clocks=${gpuSlider.value},${gpuSlider.value}`;
+      });
+      document.getElementById('pv-gpu-reset').addEventListener('click', () => {
+        gpuTarget.textContent = 'STOCK';
+        gpuBadge.textContent = 'STOCK';
+        gpuBadge.style.color = '#00D8FF';
+        out.textContent = '[preview] nvidia-smi --reset-gpu-clocks';
+      });
+    }
+
+    const cpuSlider = document.getElementById('pv-cpu-slider');
+    const cpuSp = document.getElementById('pv-cpu-sp');
+    const cpuTarget = document.getElementById('pv-cpu-target');
+    const cpuBadge = document.getElementById('pv-cpu-badge');
+
+    if (cpuSlider) {
+      cpuSlider.addEventListener('input', () => {
+        const ghz = parseFloat(cpuSlider.value).toFixed(2);
+        cpuSp.textContent = `${ghz} GHz`;
+      });
+      document.getElementById('pv-cpu-apply').addEventListener('click', () => {
+        const ghz = parseFloat(cpuSlider.value).toFixed(2);
+        const mhz = Math.round(parseFloat(cpuSlider.value) * 1000);
+        cpuTarget.textContent = `${ghz} GHz`;
+        cpuBadge.textContent = 'CAPPED';
+        cpuBadge.style.color = '#FF8C00';
+        out.textContent = `[preview] powercfg /setacvalueindex SCHEME_CURRENT SUB_PROCESSOR PROCFREQMAX ${mhz}`;
+      });
+      document.getElementById('pv-cpu-reset').addEventListener('click', () => {
+        cpuTarget.textContent = 'AUTO';
+        cpuBadge.textContent = 'TURBO AUTO';
+        cpuBadge.style.color = '#00D8FF';
+        out.textContent = '[preview] powercfg PROCFREQMAX reset to 0 (Turbo Auto) [AC+DC]';
+      });
+    }
+
     document.querySelectorAll('.seg-row').forEach(group => {
       group.querySelectorAll('.seg-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           const gName = group.dataset.group === 'boost' ? 'PERFBOOSTMODE' : 'SYSCOOLPOL';
-          const out = document.getElementById('pv-console');
-          if (out) {
-            out.textContent = `[preview] powercfg: ${gName} -> ${btn.dataset.val} [AC+DC]`;
-          }
-          const bar = document.getElementById('pv-bar');
-          const pct = document.getElementById('pv-pct');
-          if (group.dataset.group === 'boost' && bar && pct) {
-            const map = { 'Disabled (Cool/Quiet)': '75%', 'Efficient Enabled': '95%', 'Aggressive (Full Boost)': '100%' };
-            const v = map[btn.dataset.val] || '95%';
-            bar.style.width = v;
-            pct.textContent = v;
-          }
+          const lbl = document.getElementById(group.dataset.group === 'boost' ? 'pv-boost-val' : 'pv-cool-val');
+          if (lbl) lbl.textContent = btn.dataset.val;
+          out.textContent = `[preview] powercfg: ${gName} -> ${btn.dataset.val} [AC+DC]`;
         });
       });
     });

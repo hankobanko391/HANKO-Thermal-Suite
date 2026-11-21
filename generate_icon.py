@@ -5,11 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 from PIL import Image, ImageDraw
 
-BG_BASE = "#111317"
-BORDER_COLOR = "#262A33"
-SLATE_POLYGON = "#1E242D"
-CYAN_PRIMARY = "#00B4D8"
-CYAN_BRIGHT = "#38BDF8"
+BG_BASE = "#0D0F12"
+BORDER_COLOR = "#282D37"
+SLATE_POLYGON = "#1C2029"
+CYAN_PRIMARY = "#00D8FF"
+CYAN_BRIGHT = "#38E4FF"
 
 ICON_SIZES = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
 

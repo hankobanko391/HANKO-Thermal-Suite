@@ -1,4 +1,4 @@
-"""HANKO Thermal Suite — Industrial Windows Hardware Telemetry & Thermal Control Utility."""
+"""HANKO Thermal Suite v2.0 — Industrial Windows Hardware Telemetry & Clock Tuner."""
 
 from __future__ import annotations
 
@@ -14,17 +14,24 @@ from typing import Any
 
 import customtkinter as ctk
 
+from clock_tuner import (
+    CPU_FREQ_MAX_GHZ,
+    CPU_FREQ_MIN_GHZ,
+    GPU_CLOCK_MAX_MHZ,
+    GPU_CLOCK_MIN_MHZ,
+    ClockTuner,
+    ghz_to_mhz,
+    snap_cpu_freq_ghz,
+    snap_gpu_clock_mhz,
+)
+from fan_engine import EC_LOCKED_MESSAGE, FanChannel, FanScanResult
 from hardware_engine import (
     BOOST_LABELS,
     BOOST_MODES_BY_LABEL,
     COOLING_LABELS,
     COOLING_POLICIES_BY_LABEL,
-    DEFAULT_FAN_CURVE,
-    FanReading,
     HardwareEngine,
     PowerPolicyState,
-    SensorSnapshot,
-    interpolate_fan_curve,
     read_power_policy,
     set_perf_boost_mode,
     set_proc_throttle_max,
@@ -32,33 +39,40 @@ from hardware_engine import (
 )
 from stress_worker import ThermalStressController
 
-# --- Visual Tokens: Flat Matte-Charcoal Precision Engineering Palette ---
-BG_BASE = "#111317"
-BG_PANEL = "#181B20"
-BG_HEADER = "#15181E"
-BG_RECESSED = "#13161B"
-BORDER_COLOR = "#262A33"
-DIVIDER_COLOR = "#1F232B"
-SLATE_POLYGON = "#1E242D"
+APP_VERSION = "2.0.0"
 
-TEXT_PRIMARY = "#E5E7EB"
+# --- Visual Tokens: Flat Matte-Charcoal Precision Engineering Palette ---
+BG_BASE = "#0D0F12"
+BG_PANEL = "#15181E"
+BG_HEADER = "#111419"
+BG_RECESSED = "#0F1217"
+BORDER_COLOR = "#282D37"
+DIVIDER_COLOR = "#1E222B"
+SLATE_SURFACE = "#1C2029"
+
+TEXT_PRIMARY = "#E6EAF0"
 TEXT_SECONDARY = "#9CA3AF"
 TEXT_MUTED = "#6B7280"
 
-ACCENT_CYAN = "#00B4D8"
-ACCENT_BRIGHT = "#38BDF8"
+ACCENT_CYAN = "#00D8FF"
+ACCENT_CYAN_ALT = "#38E4FF"
+ACCENT_AMBER = "#FF8C00"
+ACCENT_AMBER_HOVER = "#FFA12E"
 
 STATUS_OK = "#22C55E"
-STATUS_WARN = "#F59E0B"
+STATUS_WARN = "#FF8C00"
 STATUS_CRIT = "#EF4444"
 
-FONT_MONO = ("Consolas", 11)
-FONT_MONO_SM = ("Consolas", 10)
-FONT_MONO_XS = ("Consolas", 9)
-FONT_MONO_BOLD = ("Consolas", 11, "bold")
 FONT_TITLE = ("Consolas", 15, "bold")
-FONT_HEADER = ("Segoe UI", 11, "bold")
-FONT_UI = ("Segoe UI", 11)
+FONT_HEADER = ("Consolas", 11, "bold")
+FONT_MONO = ("Consolas", 11)
+FONT_MONO_BOLD = ("Consolas", 11, "bold")
+FONT_MONO_VAL = ("Consolas", 15, "bold")
+FONT_MONO_SM = ("Consolas", 10)
+FONT_MONO_SM_BOLD = ("Consolas", 10, "bold")
+FONT_MONO_XS = ("Consolas", 9)
+FONT_MONO_XS_BOLD = ("Consolas", 9, "bold")
+FONT_UI = ("Segoe UI", 10)
 FONT_UI_SM = ("Segoe UI", 10)
 
 
@@ -68,10 +82,11 @@ def resource_path(relative_path: str) -> Path:
     return base / relative_path
 
 
-def _fmt_num(val: float | None, fmt: str, suffix: str = "", na_text: str = "N/A") -> str:
+def _fmt_fixed(val: float | None, fmt: str, suffix: str = "", width: int = 0, na_text: str = "N/A") -> str:
     if val is None:
         return na_text
-    return f"{format(val, fmt)}{suffix}"
+    core = f"{format(val, fmt)}{suffix}"
+    return core.rjust(width) if width > 0 else core
 
 
 def _temp_color(temp_c: float | None) -> str:
@@ -80,14 +95,14 @@ def _temp_color(temp_c: float | None) -> str:
     if temp_c >= 88.0:
         return STATUS_CRIT
     if temp_c >= 75.0:
-        return STATUS_WARN
-    return ACCENT_BRIGHT
+        return ACCENT_AMBER
+    return ACCENT_CYAN
 
 
 class VictusEmblemCanvas(tk.Canvas):
     """Razor-sharp architectural Victus 'V' emblem rendered with dual-tone polygons."""
 
-    def __init__(self, master: Any, width: int = 48, height: int = 40) -> None:
+    def __init__(self, master: Any, width: int = 44, height: int = 38) -> None:
         super().__init__(
             master,
             width=width,
@@ -105,11 +120,9 @@ class VictusEmblemCanvas(tk.Canvas):
         def sy(y: float) -> float:
             return y * h / 40.0
 
-        # Subtle outer framing ticks
         self.create_line(sx(1), sy(9), sx(1), sy(1), sx(9), sy(1), fill=BORDER_COLOR, width=1)
         self.create_line(sx(39), sy(39), sx(47), sy(39), sx(47), sy(31), fill=BORDER_COLOR, width=1)
 
-        # Matte-slate structural backing facet
         self.create_polygon(
             sx(5), sy(7),
             sx(17), sy(7),
@@ -118,10 +131,9 @@ class VictusEmblemCanvas(tk.Canvas):
             sx(43), sy(7),
             sx(27.5), sy(36),
             sx(20.5), sy(36),
-            fill=SLATE_POLYGON,
+            fill=SLATE_SURFACE,
             outline="",
         )
-        # Left sweeping steel-cyan blade (#00B4D8)
         self.create_polygon(
             sx(7.5), sy(5),
             sx(15.5), sy(5),
@@ -131,190 +143,77 @@ class VictusEmblemCanvas(tk.Canvas):
             fill=ACCENT_CYAN,
             outline="",
         )
-        # Right counter-blade (#38BDF8)
         self.create_polygon(
             sx(40.5), sy(5),
             sx(32.5), sy(5),
             sx(24), sy(24.5),
             sx(24), sy(34.5),
             sx(26.5), sy(34.5),
-            fill=ACCENT_BRIGHT,
+            fill=ACCENT_CYAN_ALT,
             outline="",
         )
-        # Center crisp seam line
         self.create_line(sx(24), sy(24.5), sx(24), sy(35), fill=BG_HEADER, width=1)
 
 
-class FanCurveCanvas(tk.Canvas):
-    """Interactive piecewise linear fan curve editor (30-100C vs 0-100% PWM)."""
+class SegmentedProgressBar(tk.Canvas):
+    """Flat 20-segment industrial progress meter with crisp 1px border."""
 
-    TEMP_MIN = 30.0
-    TEMP_MAX = 100.0
-    DUTY_MIN = 0.0
-    DUTY_MAX = 100.0
+    SEGMENTS = 20
 
-    def __init__(
-        self,
-        master: Any,
-        points: list[tuple[float, float]],
-        unlocked: bool,
-        on_curve_changed: Any,
-    ) -> None:
+    def __init__(self, master: Any, height: int = 12) -> None:
         super().__init__(
             master,
-            height=178,
+            height=height,
             bg=BG_RECESSED,
             highlightthickness=1,
             highlightbackground=BORDER_COLOR,
             bd=0,
         )
-        self.points: list[list[float]] = [[float(t), float(d)] for t, d in points]
-        self.unlocked = unlocked
-        self.on_curve_changed = on_curve_changed
-        self.current_temp: float | None = None
-        self._drag_index: int | None = None
+        self._ratio = 0.0
+        self.bind("<Configure>", lambda _e: self._redraw())
 
-        self.pad_l = 38
-        self.pad_r = 14
-        self.pad_t = 12
-        self.pad_b = 24
+    def set_ratio(self, ratio: float) -> None:
+        clamped = max(0.0, min(1.0, float(ratio)))
+        if abs(clamped - self._ratio) >= 0.005 or clamped in (0.0, 1.0):
+            self._ratio = clamped
+            self._redraw()
 
-        self.bind("<Configure>", lambda _e: self.redraw())
-        if self.unlocked:
-            self.bind("<Button-1>", self._on_press)
-            self.bind("<B1-Motion>", self._on_drag)
-            self.bind("<ButtonRelease-1>", self._on_release)
-
-    def set_operating_temp(self, temp_c: float | None) -> None:
-        self.current_temp = temp_c
-        self.redraw()
-
-    def _plot_bounds(self) -> tuple[float, float, float, float]:
-        w = max(240, self.winfo_width())
-        h = max(140, self.winfo_height())
-        return self.pad_l, self.pad_t, w - self.pad_r, h - self.pad_b
-
-    def _data_to_px(self, temp: float, duty: float) -> tuple[float, float]:
-        x0, y0, x1, y1 = self._plot_bounds()
-        tx = (temp - self.TEMP_MIN) / (self.TEMP_MAX - self.TEMP_MIN)
-        dy = (duty - self.DUTY_MIN) / (self.DUTY_MAX - self.DUTY_MIN)
-        return x0 + tx * (x1 - x0), y1 - dy * (y1 - y0)
-
-    def _px_to_data(self, px: float, py: float) -> tuple[float, float]:
-        x0, y0, x1, y1 = self._plot_bounds()
-        tx = max(0.0, min(1.0, (px - x0) / max(1.0, (x1 - x0))))
-        dy = max(0.0, min(1.0, (y1 - py) / max(1.0, (y1 - y0))))
-        temp = self.TEMP_MIN + tx * (self.TEMP_MAX - self.TEMP_MIN)
-        duty = self.DUTY_MIN + dy * (self.DUTY_MAX - self.DUTY_MIN)
-        return round(temp, 0), round(duty, 0)
-
-    def _on_press(self, event: tk.Event[Any]) -> None:
-        best_idx = None
-        best_dist = 18.0
-        for idx, (t, d) in enumerate(self.points):
-            px, py = self._data_to_px(t, d)
-            dist = ((event.x - px) ** 2 + (event.y - py) ** 2) ** 0.5
-            if dist <= best_dist:
-                best_dist = dist
-                best_idx = idx
-        self._drag_index = best_idx
-
-    def _on_drag(self, event: tk.Event[Any]) -> None:
-        if self._drag_index is None:
-            return
-        idx = self._drag_index
-        t_new, d_new = self._px_to_data(event.x, event.y)
-        min_t = self.TEMP_MIN if idx == 0 else self.points[idx - 1][0] + 2.0
-        max_t = self.TEMP_MAX if idx == len(self.points) - 1 else self.points[idx + 1][0] - 2.0
-        self.points[idx][0] = max(min_t, min(max_t, t_new))
-        self.points[idx][1] = max(0.0, min(100.0, d_new))
-        self.redraw()
-
-    def _on_release(self, _event: tk.Event[Any]) -> None:
-        if self._drag_index is not None:
-            self._drag_index = None
-            if self.on_curve_changed:
-                self.on_curve_changed([(t, d) for t, d in self.points])
-
-    def redraw(self) -> None:
+    def _redraw(self) -> None:
         self.delete("all")
-        x0, y0, x1, y1 = self._plot_bounds()
+        w = max(80, self.winfo_width())
+        h = max(10, self.winfo_height())
 
-        # Precision grid
-        for t_tick in range(30, 101, 10):
-            gx, _ = self._data_to_px(t_tick, 0)
-            self.create_line(gx, y0, gx, y1, fill=DIVIDER_COLOR, width=1)
-            self.create_text(gx, y1 + 11, text=f"{t_tick}C", fill=TEXT_MUTED, font=FONT_MONO_XS)
+        pad_x = 3.0
+        pad_y = 2.0
+        gap = 2.0
+        usable_w = max(20.0, w - 2.0 * pad_x - (self.SEGMENTS - 1) * gap)
+        seg_w = usable_w / self.SEGMENTS
+        y0 = pad_y
+        y1 = max(pad_y + 2.0, h - pad_y)
 
-        for d_tick in (0, 25, 50, 75, 100):
-            _, gy = self._data_to_px(30, d_tick)
-            self.create_line(x0, gy, x1, gy, fill=DIVIDER_COLOR, width=1)
-            self.create_text(x0 - 6, gy, text=f"{d_tick}%", anchor="e", fill=TEXT_MUTED, font=FONT_MONO_XS)
+        lit_count = int(round(self._ratio * self.SEGMENTS))
+        if self._ratio >= 0.90:
+            active_color = STATUS_CRIT
+        elif self._ratio >= 0.75:
+            active_color = ACCENT_AMBER
+        else:
+            active_color = ACCENT_CYAN
 
-        # Plot border
-        self.create_rectangle(x0, y0, x1, y1, outline=BORDER_COLOR, width=1)
-
-        # Curve coordinates (clamped edges + nodes)
-        ordered = sorted((t, d) for t, d in self.points)
-        curve_pts: list[tuple[float, float]] = [(self.TEMP_MIN, ordered[0][1])]
-        curve_pts.extend(ordered)
-        curve_pts.append((self.TEMP_MAX, ordered[-1][1]))
-
-        px_pts = [self._data_to_px(t, d) for t, d in curve_pts]
-        fill_poly = [(x0, y1), *px_pts, (x1, y1)]
-        flat_fill = [coord for pt in fill_poly for coord in pt]
-        self.create_polygon(
-            flat_fill,
-            fill="#15232D" if self.unlocked else "#171A20",
-            outline="",
-        )
-
-        flat_line = [coord for pt in px_pts for coord in pt]
-        self.create_line(
-            flat_line,
-            fill=ACCENT_CYAN if self.unlocked else "#4B5563",
-            width=2,
-        )
-
-        # Live operating temperature marker
-        if self.current_temp is not None:
-            t_clamped = max(self.TEMP_MIN, min(self.TEMP_MAX, self.current_temp))
-            op_duty = interpolate_fan_curve(t_clamped, ordered)
-            mx, my = self._data_to_px(t_clamped, op_duty)
-            self.create_line(mx, y0, mx, y1, fill=ACCENT_BRIGHT if self.unlocked else "#4B5563", dash=(3, 3), width=1)
-            self.create_rectangle(mx - 3, my - 3, mx + 3, my + 3, fill=ACCENT_BRIGHT if self.unlocked else TEXT_MUTED, outline=BG_RECESSED)
-
-        # Control points
-        for idx, (t, d) in enumerate(ordered):
-            px, py = self._data_to_px(t, d)
-            fill_c = ACCENT_BRIGHT if self.unlocked else "#4B5563"
-            out_c = BG_BASE
-            self.create_rectangle(px - 4, py - 4, px + 4, py + 4, fill=fill_c, outline=out_c, width=1)
-            if self.unlocked and (idx == self._drag_index):
-                self.create_text(px, py - 11, text=f"{int(t)}C:{int(d)}%", fill=ACCENT_BRIGHT, font=FONT_MONO_XS)
-
-        # Honest OEM EC Lock Overlay
-        if not self.unlocked:
-            cx = (x0 + x1) / 2.0
-            cy = (y0 + y1) / 2.0
-            self.create_rectangle(cx - 112, cy - 15, cx + 112, cy + 15, fill=BG_PANEL, outline=STATUS_WARN, width=1)
-            self.create_text(
-                cx,
-                cy,
-                text="LOCKED BY OEM BIOS EC",
-                fill=STATUS_WARN,
-                font=("Consolas", 10, "bold"),
-            )
+        for idx in range(self.SEGMENTS):
+            x0 = pad_x + idx * (seg_w + gap)
+            x1 = x0 + seg_w
+            fill = active_color if idx < lit_count else DIVIDER_COLOR
+            self.create_rectangle(x0, y0, x1, y1, fill=fill, outline="")
 
 
 class SensorRow:
-    """Single tabular telemetry row in the Left Sensor Tree."""
+    """Single tabular telemetry row in the HWiNFO64-style Left Sensor Tree."""
 
     def __init__(self, parent: ctk.CTkFrame, label: str, with_bar: bool = False) -> None:
-        self.frame = ctk.CTkFrame(parent, fg_color="transparent", corner_radius=0, height=24)
-        self.frame.pack(fill="x", padx=8, pady=1)
+        self.frame = ctk.CTkFrame(parent, fg_color="transparent", corner_radius=0, height=22)
+        self.frame.pack(fill="x", padx=6, pady=1)
         self.frame.grid_columnconfigure(0, weight=5, uniform="sr")
-        self.frame.grid_columnconfigure(1, weight=3, uniform="sr")
+        self.frame.grid_columnconfigure(1, weight=4, uniform="sr")
         self.frame.grid_columnconfigure(2, weight=2, uniform="sr")
         self.frame.grid_columnconfigure(3, weight=2, uniform="sr")
 
@@ -329,7 +228,7 @@ class SensorRow:
 
         self.lbl_curr = ctk.CTkLabel(
             self.frame,
-            text="--",
+            text="      --",
             font=FONT_MONO_BOLD,
             text_color=TEXT_PRIMARY,
             anchor="e",
@@ -338,7 +237,7 @@ class SensorRow:
 
         self.lbl_min = ctk.CTkLabel(
             self.frame,
-            text="--",
+            text="    --",
             font=FONT_MONO_SM,
             text_color=TEXT_MUTED,
             anchor="e",
@@ -347,7 +246,7 @@ class SensorRow:
 
         self.lbl_max = ctk.CTkLabel(
             self.frame,
-            text="--",
+            text="    --",
             font=FONT_MONO_SM,
             text_color=TEXT_MUTED,
             anchor="e",
@@ -360,17 +259,17 @@ class SensorRow:
                 self.frame,
                 height=4,
                 corner_radius=0,
-                fg_color=BORDER_COLOR,
+                fg_color=DIVIDER_COLOR,
                 progress_color=ACCENT_CYAN,
             )
             self.bar.set(0.0)
-            self.bar.grid(row=1, column=0, columnspan=4, sticky="ew", padx=4, pady=(1, 3))
+            self.bar.grid(row=1, column=0, columnspan=4, sticky="ew", padx=4, pady=(1, 2))
 
     def update(
         self,
         curr_text: str,
-        min_text: str = "--",
-        max_text: str = "--",
+        min_text: str = "    --",
+        max_text: str = "    --",
         curr_color: str = TEXT_PRIMARY,
         bar_ratio: float | None = None,
     ) -> None:
@@ -381,8 +280,76 @@ class SensorRow:
             self.bar.set(max(0.0, min(1.0, bar_ratio)))
 
 
+class FanArrayRow:
+    """Single detected fan channel row with RPM, load %, and segmented meter."""
+
+    def __init__(self, parent: Any, channel_name: str, source_tag: str) -> None:
+        self.frame = ctk.CTkFrame(
+            parent,
+            fg_color=BG_RECESSED,
+            border_color=BORDER_COLOR,
+            border_width=1,
+            corner_radius=2,
+        )
+        self.frame.pack(fill="x", padx=2, pady=(0, 5))
+        self.frame.grid_columnconfigure(0, weight=1)
+
+        top = ctk.CTkFrame(self.frame, fg_color="transparent", corner_radius=0)
+        top.grid(row=0, column=0, sticky="ew", padx=8, pady=(5, 3))
+        top.grid_columnconfigure(0, weight=1)
+
+        self.lbl_name = ctk.CTkLabel(
+            top,
+            text=channel_name,
+            font=FONT_MONO_SM_BOLD,
+            text_color=TEXT_PRIMARY,
+            anchor="w",
+        )
+        self.lbl_name.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+
+        self.lbl_src = ctk.CTkLabel(
+            top,
+            text=source_tag,
+            font=FONT_MONO_XS,
+            text_color=TEXT_MUTED,
+            anchor="e",
+            width=78,
+        )
+        self.lbl_src.grid(row=0, column=1, sticky="e", padx=(0, 8))
+
+        self.lbl_rpm = ctk.CTkLabel(
+            top,
+            text="    0 RPM",
+            font=FONT_MONO_BOLD,
+            text_color=ACCENT_CYAN,
+            anchor="e",
+            width=82,
+        )
+        self.lbl_rpm.grid(row=0, column=2, sticky="e", padx=(0, 8))
+
+        self.lbl_pct = ctk.CTkLabel(
+            top,
+            text="  0.0 %",
+            font=FONT_MONO_SM_BOLD,
+            text_color=TEXT_PRIMARY,
+            anchor="e",
+            width=58,
+        )
+        self.lbl_pct.grid(row=0, column=3, sticky="e")
+
+        self.seg_bar = SegmentedProgressBar(self.frame, height=12)
+        self.seg_bar.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 6))
+
+    def update(self, channel: FanChannel) -> None:
+        self.lbl_name.configure(text=channel.name)
+        self.lbl_src.configure(text=channel.pct_source.upper())
+        self.lbl_rpm.configure(text=f"{channel.rpm:5.0f} RPM")
+        self.lbl_pct.configure(text=f"{channel.load_pct:5.1f} %")
+        self.seg_bar.set_ratio(channel.load_pct / 100.0)
+
+
 class HankoThermalApp(ctk.CTk):
-    """Main desktop application window for HANKO Thermal Suite."""
+    """Main desktop application window for HANKO Thermal Suite v2.0."""
 
     def __init__(self, smoke_test: bool = False) -> None:
         super().__init__()
@@ -391,13 +358,13 @@ class HankoThermalApp(ctk.CTk):
         self._throttle_debounce_id: str | None = None
         self._heartbeat_state = False
         self._stress_baseline_temp: float | None = None
-        self._fan_rows: list[SensorRow] = []
+        self._fan_rows: list[FanArrayRow] = []
         self._fan_signature: tuple[str, ...] = ()
 
         ctk.set_appearance_mode("dark")
-        self.title("HANKO // THERMAL SUITE")
-        self.geometry("1120x740")
-        self.minsize(1020, 680)
+        self.title("HANKO // THERMAL SUITE v2.0")
+        self.geometry("1220x780")
+        self.minsize(1100, 700)
         self.configure(fg_color=BG_BASE)
 
         ico_path = resource_path(os.path.join("assets", "hanko_victus.ico"))
@@ -409,13 +376,17 @@ class HankoThermalApp(ctk.CTk):
 
         self.engine = HardwareEngine(poll_interval_s=1.0)
         self.engine.set_status_callback(lambda msg: self._status_queue.put(msg))
+        self.clock_tuner = ClockTuner()
         self.stress = ThermalStressController()
         self.policy_state: PowerPolicyState = read_power_policy()
 
+        self._gpu_slider_mhz: int = 1355
+        self._cpu_slider_ghz: float = 3.20
+
         self._build_layout()
         self._sync_policy_widgets(self.policy_state)
+        self._sync_clock_widgets()
 
-        # Start telemetry in background daemon thread immediately so UI never blocks on startup.
         self.engine.start()
         self._update_ui_loop()
 
@@ -433,15 +404,15 @@ class HankoThermalApp(ctk.CTk):
             fg_color=BG_HEADER,
             corner_radius=0,
             border_width=0,
-            height=58,
+            height=60,
         )
         header.grid(row=0, column=0, sticky="ew")
         header.grid_propagate(False)
         header.grid_columnconfigure(1, weight=1)
 
         emblem_wrap = tk.Frame(header, bg=BG_HEADER, bd=0, highlightthickness=0)
-        emblem_wrap.grid(row=0, column=0, padx=(14, 10), pady=9, sticky="w")
-        self.emblem = VictusEmblemCanvas(emblem_wrap, width=48, height=40)
+        emblem_wrap.grid(row=0, column=0, padx=(14, 10), pady=10, sticky="w")
+        self.emblem = VictusEmblemCanvas(emblem_wrap, width=44, height=38)
         self.emblem.pack()
 
         title_col = ctk.CTkFrame(header, fg_color="transparent")
@@ -455,57 +426,112 @@ class HankoThermalApp(ctk.CTk):
         ).pack(anchor="w")
         ctk.CTkLabel(
             title_col,
-            text="HARDWARE TELEMETRY & POWER POLICY ENGINE  |  v1.0.0",
+            text=f"v{APP_VERSION}  |  LHM PAWNIO TELEMETRY & DIRECT CLOCK TUNER",
             font=FONT_MONO_XS,
             text_color=TEXT_MUTED,
             anchor="w",
         ).pack(anchor="w")
 
+        # Live hardware summary bar in center-right
+        summary_box = ctk.CTkFrame(
+            header,
+            fg_color=BG_RECESSED,
+            border_color=BORDER_COLOR,
+            border_width=1,
+            corner_radius=2,
+        )
+        summary_box.grid(row=0, column=2, padx=(8, 10), pady=12, sticky="e")
+        self.lbl_hw_summary = ctk.CTkLabel(
+            summary_box,
+            text="CPU:   --.- °C   -.-- GHz  |  GPU:   -- °C   ---- MHz  |  FANS: 0",
+            font=FONT_MONO_XS_BOLD,
+            text_color=ACCENT_CYAN,
+            padx=10,
+            pady=4,
+        )
+        self.lbl_hw_summary.pack()
+
         meta_col = ctk.CTkFrame(header, fg_color="transparent")
-        meta_col.grid(row=0, column=2, padx=14, sticky="e")
+        meta_col.grid(row=0, column=3, padx=(0, 14), sticky="e")
 
-        priv_text = "PRIV: ADMIN" if self.engine.static_info.is_admin else "PRIV: STANDARD"
-        priv_color = STATUS_OK if self.engine.static_info.is_admin else STATUS_WARN
+        priv_ok = self.engine.static_info.is_admin
+        priv_text = "ADMIN PRIVILEGE: VERIFIED" if priv_ok else "ADMIN PRIVILEGE: STANDARD"
+        priv_color = STATUS_OK if priv_ok else ACCENT_AMBER
+        priv_frame = ctk.CTkFrame(
+            meta_col,
+            fg_color=BG_RECESSED,
+            border_color=priv_color,
+            border_width=1,
+            corner_radius=2,
+        )
+        priv_frame.pack(side="left", padx=(0, 6))
         self.lbl_priv = ctk.CTkLabel(
-            meta_col,
+            priv_frame,
             text=priv_text,
-            font=FONT_MONO_XS,
+            font=FONT_MONO_XS_BOLD,
             text_color=priv_color,
-            fg_color=BG_RECESSED,
-            corner_radius=2,
             padx=8,
             pady=3,
         )
-        self.lbl_priv.pack(side="left", padx=(0, 8))
+        self.lbl_priv.pack()
 
-        scheme = self.engine.static_info.active_scheme_name or "Unknown"
-        self.lbl_plan = ctk.CTkLabel(
+        # Crisp 1px framed plan badge
+        plan_frame = ctk.CTkFrame(
             meta_col,
-            text=f"PLAN: {scheme.upper()}",
-            font=FONT_MONO_XS,
-            text_color=ACCENT_BRIGHT,
             fg_color=BG_RECESSED,
+            border_color=BORDER_COLOR,
+            border_width=1,
             corner_radius=2,
+        )
+        plan_frame.pack(side="left", padx=(0, 8))
+        scheme = (self.engine.static_info.active_scheme_name or "UNKNOWN").upper()
+        self.lbl_plan = ctk.CTkLabel(
+            plan_frame,
+            text=f"PLAN: {scheme}",
+            font=FONT_MONO_XS_BOLD,
+            text_color=ACCENT_CYAN,
             padx=8,
             pady=3,
         )
-        self.lbl_plan.pack(side="left", padx=(0, 8))
+        self.lbl_plan.pack()
 
-        self.heartbeat_canvas = tk.Canvas(meta_col, width=10, height=10, bg=BG_HEADER, highlightthickness=0)
-        self.heartbeat_canvas.pack(side="left", padx=(2, 0))
+        sys_frame = ctk.CTkFrame(
+            meta_col,
+            fg_color=BG_RECESSED,
+            border_color=BORDER_COLOR,
+            border_width=1,
+            corner_radius=2,
+        )
+        sys_frame.pack(side="left")
+        ctk.CTkLabel(
+            sys_frame,
+            text="SYS: LIVE",
+            font=FONT_MONO_XS_BOLD,
+            text_color=TEXT_SECONDARY,
+            padx=6,
+            pady=3,
+        ).pack(side="left")
+        self.heartbeat_canvas = tk.Canvas(
+            sys_frame,
+            width=10,
+            height=10,
+            bg=BG_RECESSED,
+            highlightthickness=0,
+            bd=0,
+        )
+        self.heartbeat_canvas.pack(side="left", padx=(0, 6))
         self._hb_rect = self.heartbeat_canvas.create_rectangle(1, 1, 9, 9, fill=ACCENT_CYAN, outline="")
 
-        header_border = tk.Frame(self, bg=BORDER_COLOR, height=1)
-        header_border.place(in_=header, relx=0, rely=1.0, anchor="sw", relwidth=1.0)
+        tk.Frame(self, bg=BORDER_COLOR, height=1).place(in_=header, relx=0, rely=1.0, anchor="sw", relwidth=1.0)
 
         # === TWO-COLUMN WORKSPACE ===
         body = ctk.CTkFrame(self, fg_color=BG_BASE, corner_radius=0)
-        body.grid(row=1, column=0, sticky="nsew", padx=12, pady=10)
+        body.grid(row=1, column=0, sticky="nsew", padx=10, pady=8)
         body.grid_rowconfigure(0, weight=1)
         body.grid_columnconfigure(0, weight=5, uniform="cols")
         body.grid_columnconfigure(1, weight=6, uniform="cols")
 
-        self._build_left_sensor_column(body)
+        self._build_left_telemetry_column(body)
         self._build_right_control_column(body)
 
         # === FOOTER CONSOLE ===
@@ -516,38 +542,44 @@ class HankoThermalApp(ctk.CTk):
 
         self.lbl_console = ctk.CTkLabel(
             footer,
-            text=self._fmt_console("Telemetry engine initialized; genuine hardware polling active"),
+            text=self._fmt_console("HANKO v2.0 telemetry & clock engine initialized"),
             font=FONT_MONO_XS,
             text_color=TEXT_SECONDARY,
             anchor="w",
         )
         self.lbl_console.pack(fill="x", padx=12, pady=2)
 
-    def _build_left_sensor_column(self, parent: ctk.CTkFrame) -> None:
-        panel = ctk.CTkFrame(
-            parent,
+    def _build_left_telemetry_column(self, parent: ctk.CTkFrame) -> None:
+        left_col = ctk.CTkFrame(parent, fg_color="transparent", corner_radius=0)
+        left_col.grid(row=0, column=0, sticky="nsew", padx=(0, 5))
+        left_col.grid_columnconfigure(0, weight=1)
+        left_col.grid_rowconfigure(0, weight=1)
+        left_col.grid_rowconfigure(1, weight=1)
+
+        # === PANEL 1: LIVE HARDWARE SENSOR TREE ===
+        sensor_panel = ctk.CTkFrame(
+            left_col,
             fg_color=BG_PANEL,
             border_color=BORDER_COLOR,
             border_width=1,
             corner_radius=2,
         )
-        panel.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
-        panel.grid_rowconfigure(2, weight=1)
-        panel.grid_columnconfigure(0, weight=1)
+        sensor_panel.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
+        sensor_panel.grid_columnconfigure(0, weight=1)
+        sensor_panel.grid_rowconfigure(2, weight=1)
 
-        # Top bar
-        top = ctk.CTkFrame(panel, fg_color=BG_HEADER, corner_radius=0, height=34)
-        top.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0))
-        top.grid_propagate(False)
+        s_top = ctk.CTkFrame(sensor_panel, fg_color=BG_HEADER, corner_radius=0, height=32)
+        s_top.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0))
+        s_top.grid_propagate(False)
         ctk.CTkLabel(
-            top,
+            s_top,
             text="LIVE HARDWARE SENSOR TREE",
-            font=FONT_MONO_BOLD,
+            font=FONT_HEADER,
             text_color=TEXT_PRIMARY,
-        ).pack(side="left", padx=10, pady=6)
+        ).pack(side="left", padx=10, pady=5)
 
         ctk.CTkButton(
-            top,
+            s_top,
             text="RESET MIN/MAX",
             width=96,
             height=22,
@@ -555,22 +587,22 @@ class HankoThermalApp(ctk.CTk):
             border_width=1,
             border_color=BORDER_COLOR,
             fg_color=BG_RECESSED,
-            hover_color=SLATE_POLYGON,
+            hover_color=SLATE_SURFACE,
             text_color=TEXT_SECONDARY,
             font=FONT_MONO_XS,
             command=self._on_reset_minmax,
-        ).pack(side="right", padx=8, pady=6)
+        ).pack(side="right", padx=8, pady=5)
 
-        # Table Column Headers
-        hdr = ctk.CTkFrame(panel, fg_color=BG_RECESSED, corner_radius=0, height=24)
+        # Column headers
+        hdr = ctk.CTkFrame(sensor_panel, fg_color=BG_RECESSED, corner_radius=0, height=22)
         hdr.grid(row=1, column=0, sticky="ew", padx=1)
         hdr.grid_columnconfigure(0, weight=5, uniform="sr")
-        hdr.grid_columnconfigure(1, weight=3, uniform="sr")
+        hdr.grid_columnconfigure(1, weight=4, uniform="sr")
         hdr.grid_columnconfigure(2, weight=2, uniform="sr")
         hdr.grid_columnconfigure(3, weight=2, uniform="sr")
 
         for col_idx, (txt, anchor, px) in enumerate(
-            [("SENSOR", "w", (12, 4)), ("CURRENT", "e", 4), ("MIN", "e", 4), ("MAX", "e", (4, 12))]
+            [("SENSOR", "w", (10, 4)), ("CURRENT", "e", 4), ("MIN", "e", 4), ("MAX", "e", (4, 10))]
         ):
             ctk.CTkLabel(
                 hdr,
@@ -578,15 +610,13 @@ class HankoThermalApp(ctk.CTk):
                 font=FONT_MONO_XS,
                 text_color=TEXT_MUTED,
                 anchor=anchor,
-            ).grid(row=0, column=col_idx, sticky="ew", padx=px, pady=2)
+            ).grid(row=0, column=col_idx, sticky="ew", padx=px, pady=1)
 
-        # Scrollable/clean tree container
-        tree = ctk.CTkFrame(panel, fg_color="transparent", corner_radius=0)
-        tree.grid(row=2, column=0, sticky="nsew", padx=2, pady=4)
+        tree = ctk.CTkFrame(sensor_panel, fg_color="transparent", corner_radius=0)
+        tree.grid(row=2, column=0, sticky="nsew", padx=2, pady=(2, 4))
 
         info = self.engine.static_info
 
-        # CPU Group
         cpu_title = f"CPU // {info.cpu_name} ({info.cpu_cores_physical}C/{info.cpu_cores_logical}T)"
         self._section_label(tree, cpu_title)
         self.row_cpu_temp = SensorRow(tree, "Package / ACPI Temp")
@@ -594,7 +624,6 @@ class HankoThermalApp(ctk.CTk):
         self.row_cpu_load = SensorRow(tree, "Total CPU Load", with_bar=True)
         self.row_cpu_peak = SensorRow(tree, "Peak Thread Load")
 
-        # GPU Group
         gpu_title = f"GPU // {info.gpu_name}"
         self._section_label(tree, gpu_title)
         self.row_gpu_temp = SensorRow(tree, "GPU Core Temp")
@@ -603,87 +632,427 @@ class HankoThermalApp(ctk.CTk):
         self.row_gpu_load = SensorRow(tree, "GPU Utilization", with_bar=True)
         self.row_gpu_vram = SensorRow(tree, "VRAM / P-State")
 
-        # Fans Group
-        self._section_label(tree, "COOLING // DETECTED FAN RPMS")
-        self.fan_container = ctk.CTkFrame(tree, fg_color="transparent", corner_radius=0)
-        self.fan_container.pack(fill="x")
-
-        # Bottom Hardware Inventory Strip
-        inv = ctk.CTkFrame(panel, fg_color=BG_RECESSED, corner_radius=2, border_width=1, border_color=DIVIDER_COLOR)
-        inv.grid(row=3, column=0, sticky="ew", padx=8, pady=(4, 8))
-        inv.grid_columnconfigure(0, weight=1)
-
-        pwm_text = info.pwm_backend if info.pwm_control_available else info.pwm_lock_reason
-        self.lbl_inventory = ctk.CTkLabel(
-            inv,
-            text=(
-                f"OS: {info.os_version}\n"
-                f"GPU DRV: {info.gpu_driver}  |  PWM: {pwm_text}"
-            ),
-            font=FONT_MONO_XS,
-            text_color=TEXT_MUTED,
-            justify="left",
-            anchor="w",
-        )
-        self.lbl_inventory.pack(fill="x", padx=8, pady=6)
-
-    def _section_label(self, parent: ctk.CTkFrame, text: str) -> None:
-        bar = ctk.CTkFrame(parent, fg_color=DIVIDER_COLOR, corner_radius=0, height=22)
-        bar.pack(fill="x", padx=6, pady=(7, 2))
-        bar.pack_propagate(False)
-        ctk.CTkLabel(
-            bar,
-            text=text,
-            font=("Consolas", 10, "bold"),
-            text_color=ACCENT_BRIGHT,
-            anchor="w",
-        ).pack(side="left", padx=6, pady=1)
-
-    def _build_right_control_column(self, parent: ctk.CTkFrame) -> None:
-        panel = ctk.CTkFrame(
-            parent,
+        # === PANEL 2: COOLING & FAN ARRAY ===
+        fan_panel = ctk.CTkFrame(
+            left_col,
             fg_color=BG_PANEL,
             border_color=BORDER_COLOR,
             border_width=1,
             corner_radius=2,
         )
-        panel.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
-        panel.grid_columnconfigure(0, weight=1)
-        panel.grid_rowconfigure(2, weight=1)
+        fan_panel.grid(row=1, column=0, sticky="nsew", pady=(0, 6))
+        fan_panel.grid_columnconfigure(0, weight=1)
+        fan_panel.grid_rowconfigure(1, weight=1)
 
-        top = ctk.CTkFrame(panel, fg_color=BG_HEADER, corner_radius=0, height=34)
-        top.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0))
-        top.grid_propagate(False)
+        f_top = ctk.CTkFrame(fan_panel, fg_color=BG_HEADER, corner_radius=0, height=32)
+        f_top.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0))
+        f_top.grid_propagate(False)
+
         ctk.CTkLabel(
-            top,
-            text="DIRECT HARDWARE & THERMAL CONTROLS",
-            font=FONT_MONO_BOLD,
+            f_top,
+            text="COOLING & FAN ARRAY",
+            font=FONT_HEADER,
             text_color=TEXT_PRIMARY,
-        ).pack(side="left", padx=10, pady=6)
+        ).pack(side="left", padx=10, pady=5)
+
+        self.lbl_fan_count = ctk.CTkLabel(
+            f_top,
+            text="DETECTED FANS: 0",
+            font=FONT_MONO_SM_BOLD,
+            text_color=ACCENT_AMBER,
+            fg_color=BG_RECESSED,
+            corner_radius=2,
+            padx=8,
+            pady=2,
+        )
+        self.lbl_fan_count.pack(side="right", padx=8, pady=5)
+
+        self.fan_scroll = ctk.CTkScrollableFrame(
+            fan_panel,
+            fg_color="transparent",
+            corner_radius=0,
+            scrollbar_button_color=BORDER_COLOR,
+            scrollbar_button_hover_color=SLATE_SURFACE,
+        )
+        self.fan_scroll.grid(row=1, column=0, sticky="nsew", padx=6, pady=6)
+
+        # === PANEL 3: HARDWARE INVENTORY STRIP ===
+        inv = ctk.CTkFrame(
+            left_col,
+            fg_color=BG_PANEL,
+            border_color=BORDER_COLOR,
+            border_width=1,
+            corner_radius=2,
+        )
+        inv.grid(row=2, column=0, sticky="ew")
+        self.lbl_inventory = ctk.CTkLabel(
+            inv,
+            text=f"OS: {info.os_version}  |  GPU DRV: {info.gpu_driver}\nTEMP SRC: Initializing  |  FAN BUS: LibreHardwareMonitorLib (PawnIO)",
+            font=FONT_MONO_XS,
+            text_color=TEXT_MUTED,
+            justify="left",
+            anchor="w",
+        )
+        self.lbl_inventory.pack(fill="x", padx=10, pady=6)
+
+    def _section_label(self, parent: ctk.CTkFrame, text: str) -> None:
+        bar = ctk.CTkFrame(parent, fg_color=DIVIDER_COLOR, corner_radius=0, height=20)
+        bar.pack(fill="x", padx=6, pady=(6, 2))
+        bar.pack_propagate(False)
+        ctk.CTkLabel(
+            bar,
+            text=text,
+            font=FONT_MONO_XS_BOLD,
+            text_color=ACCENT_CYAN,
+            anchor="w",
+        ).pack(side="left", padx=6, pady=1)
+
+    def _build_right_control_column(self, parent: ctk.CTkFrame) -> None:
+        right_col = ctk.CTkFrame(parent, fg_color="transparent", corner_radius=0)
+        right_col.grid(row=0, column=1, sticky="nsew", padx=(5, 0))
+        right_col.grid_columnconfigure(0, weight=1)
+        right_col.grid_rowconfigure(0, weight=1)
+
+        # === MODULE A: CLOCK TUNING & OVERCLOCKING ===
+        clock_panel = ctk.CTkFrame(
+            right_col,
+            fg_color=BG_PANEL,
+            border_color=BORDER_COLOR,
+            border_width=1,
+            corner_radius=2,
+        )
+        clock_panel.grid(row=0, column=0, sticky="nsew", pady=(0, 6))
+        clock_panel.grid_columnconfigure(0, weight=1)
+        clock_panel.grid_rowconfigure(1, weight=1)
+
+        c_top = ctk.CTkFrame(clock_panel, fg_color=BG_HEADER, corner_radius=0, height=32)
+        c_top.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0))
+        c_top.grid_propagate(False)
+        ctk.CTkLabel(
+            c_top,
+            text="CLOCK TUNING & OVERCLOCKING",
+            font=FONT_HEADER,
+            text_color=TEXT_PRIMARY,
+        ).pack(side="left", padx=10, pady=5)
+
+        ctk.CTkLabel(
+            c_top,
+            text="DIRECT FREQUENCY CONTROL",
+            font=FONT_MONO_XS_BOLD,
+            text_color=ACCENT_AMBER,
+            fg_color=BG_RECESSED,
+            corner_radius=2,
+            padx=8,
+            pady=2,
+        ).pack(side="right", padx=8, pady=5)
+
+        tuner_grid = ctk.CTkFrame(clock_panel, fg_color="transparent", corner_radius=0)
+        tuner_grid.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
+        tuner_grid.grid_rowconfigure(0, weight=1)
+        tuner_grid.grid_columnconfigure(0, weight=1, uniform="tuner")
+        tuner_grid.grid_columnconfigure(1, weight=1, uniform="tuner")
+
+        # --- Subpanel Left: GPU CORE CLOCK (MHz) ---
+        gpu_card = ctk.CTkFrame(
+            tuner_grid,
+            fg_color=BG_RECESSED,
+            border_color=BORDER_COLOR,
+            border_width=1,
+            corner_radius=2,
+        )
+        gpu_card.grid(row=0, column=0, sticky="nsew", padx=(0, 4))
+        gpu_card.grid_columnconfigure(0, weight=1)
+
+        g_hdr = ctk.CTkFrame(gpu_card, fg_color=DIVIDER_COLOR, corner_radius=0, height=26)
+        g_hdr.pack(fill="x", padx=1, pady=(1, 6))
+        g_hdr.pack_propagate(False)
+        ctk.CTkLabel(
+            g_hdr,
+            text="GPU CORE CLOCK (MHz)",
+            font=FONT_MONO_SM_BOLD,
+            text_color=TEXT_PRIMARY,
+        ).pack(side="left", padx=8)
+        self.lbl_gpu_lock_badge = ctk.CTkLabel(
+            g_hdr,
+            text="STOCK",
+            font=FONT_MONO_XS_BOLD,
+            text_color=ACCENT_CYAN,
+        )
+        self.lbl_gpu_lock_badge.pack(side="right", padx=8)
+
+        g_readouts = ctk.CTkFrame(gpu_card, fg_color=BG_PANEL, border_color=BORDER_COLOR, border_width=1, corner_radius=2)
+        g_readouts.pack(fill="x", padx=8, pady=(0, 8))
+        g_readouts.grid_columnconfigure((0, 1), weight=1, uniform="gr")
+
+        g_live_cell = ctk.CTkFrame(g_readouts, fg_color="transparent")
+        g_live_cell.grid(row=0, column=0, sticky="ew", padx=8, pady=6)
+        ctk.CTkLabel(g_live_cell, text="LIVE CLOCK", font=FONT_MONO_XS, text_color=TEXT_MUTED, anchor="w").pack(fill="x")
+        self.lbl_gpu_live = ctk.CTkLabel(
+            g_live_cell,
+            text="---- MHz",
+            font=FONT_MONO_VAL,
+            text_color=ACCENT_CYAN,
+            anchor="e",
+        )
+        self.lbl_gpu_live.pack(fill="x")
+
+        g_tgt_cell = ctk.CTkFrame(g_readouts, fg_color="transparent")
+        g_tgt_cell.grid(row=0, column=1, sticky="ew", padx=8, pady=6)
+        ctk.CTkLabel(g_tgt_cell, text="TARGET CLOCK", font=FONT_MONO_XS, text_color=TEXT_MUTED, anchor="w").pack(fill="x")
+        self.lbl_gpu_target = ctk.CTkLabel(
+            g_tgt_cell,
+            text="   STOCK",
+            font=FONT_MONO_VAL,
+            text_color=ACCENT_AMBER,
+            anchor="e",
+        )
+        self.lbl_gpu_target.pack(fill="x")
+
+        g_sp_row = ctk.CTkFrame(gpu_card, fg_color="transparent")
+        g_sp_row.pack(fill="x", padx=8, pady=(0, 2))
+        ctk.CTkLabel(g_sp_row, text="SETPOINT [15 MHz STEP]", font=FONT_MONO_XS, text_color=TEXT_SECONDARY).pack(side="left")
+        self.lbl_gpu_setpoint = ctk.CTkLabel(
+            g_sp_row,
+            text="1355 MHz",
+            font=FONT_MONO_SM_BOLD,
+            text_color=ACCENT_AMBER,
+            anchor="e",
+        )
+        self.lbl_gpu_setpoint.pack(side="right")
+
+        gpu_ok = self.clock_tuner.nvidia_available
+        self.slider_gpu_clock = ctk.CTkSlider(
+            gpu_card,
+            from_=GPU_CLOCK_MIN_MHZ,
+            to=GPU_CLOCK_MAX_MHZ,
+            number_of_steps=70,
+            height=16,
+            corner_radius=2,
+            button_corner_radius=2,
+            button_length=10,
+            fg_color=BORDER_COLOR,
+            progress_color=ACCENT_AMBER if gpu_ok else DIVIDER_COLOR,
+            button_color=ACCENT_AMBER_HOVER if gpu_ok else TEXT_MUTED,
+            button_hover_color=TEXT_PRIMARY,
+            state="normal" if gpu_ok else "disabled",
+            command=self._on_gpu_slider_drag,
+        )
+        self.slider_gpu_clock.set(self._gpu_slider_mhz)
+        self.slider_gpu_clock.pack(fill="x", padx=8, pady=(2, 0))
+
+        g_ticks = ctk.CTkFrame(gpu_card, fg_color="transparent")
+        g_ticks.pack(fill="x", padx=8, pady=(0, 8))
+        for idx, tlabel in enumerate(("800", "1150", "1500", "1850")):
+            g_ticks.grid_columnconfigure(idx, weight=1)
+            anc = "w" if idx == 0 else ("e" if idx == 3 else "center")
+            ctk.CTkLabel(g_ticks, text=tlabel, font=FONT_MONO_XS, text_color=TEXT_MUTED, anchor=anc).grid(
+                row=0, column=idx, sticky="ew"
+            )
+
+        g_btns = ctk.CTkFrame(gpu_card, fg_color="transparent")
+        g_btns.pack(fill="x", padx=8, pady=(2, 8))
+        g_btns.grid_columnconfigure((0, 1), weight=1, uniform="gb")
+        self.btn_gpu_apply = ctk.CTkButton(
+            g_btns,
+            text="APPLY",
+            height=28,
+            corner_radius=2,
+            border_width=1,
+            border_color=ACCENT_AMBER,
+            fg_color=SLATE_SURFACE,
+            hover_color="#2A2116",
+            text_color=ACCENT_AMBER,
+            font=FONT_MONO_SM_BOLD,
+            state="normal" if gpu_ok else "disabled",
+            command=self._on_gpu_apply,
+        )
+        self.btn_gpu_apply.grid(row=0, column=0, sticky="ew", padx=(0, 3))
+
+        self.btn_gpu_reset = ctk.CTkButton(
+            g_btns,
+            text="RESET STOCK",
+            height=28,
+            corner_radius=2,
+            border_width=1,
+            border_color=BORDER_COLOR,
+            fg_color=BG_PANEL,
+            hover_color=SLATE_SURFACE,
+            text_color=TEXT_SECONDARY,
+            font=FONT_MONO_SM_BOLD,
+            state="normal" if gpu_ok else "disabled",
+            command=self._on_gpu_reset,
+        )
+        self.btn_gpu_reset.grid(row=0, column=1, sticky="ew", padx=(3, 0))
+
+        # --- Subpanel Right: CPU MAX FREQUENCY (GHz) ---
+        cpu_card = ctk.CTkFrame(
+            tuner_grid,
+            fg_color=BG_RECESSED,
+            border_color=BORDER_COLOR,
+            border_width=1,
+            corner_radius=2,
+        )
+        cpu_card.grid(row=0, column=1, sticky="nsew", padx=(4, 0))
+        cpu_card.grid_columnconfigure(0, weight=1)
+
+        c_hdr = ctk.CTkFrame(cpu_card, fg_color=DIVIDER_COLOR, corner_radius=0, height=26)
+        c_hdr.pack(fill="x", padx=1, pady=(1, 6))
+        c_hdr.pack_propagate(False)
+        ctk.CTkLabel(
+            c_hdr,
+            text="CPU MAX FREQUENCY (GHz)",
+            font=FONT_MONO_SM_BOLD,
+            text_color=TEXT_PRIMARY,
+        ).pack(side="left", padx=8)
+        self.lbl_cpu_cap_badge = ctk.CTkLabel(
+            c_hdr,
+            text="TURBO AUTO",
+            font=FONT_MONO_XS_BOLD,
+            text_color=ACCENT_CYAN,
+        )
+        self.lbl_cpu_cap_badge.pack(side="right", padx=8)
+
+        c_readouts = ctk.CTkFrame(cpu_card, fg_color=BG_PANEL, border_color=BORDER_COLOR, border_width=1, corner_radius=2)
+        c_readouts.pack(fill="x", padx=8, pady=(0, 8))
+        c_readouts.grid_columnconfigure((0, 1), weight=1, uniform="cr")
+
+        c_live_cell = ctk.CTkFrame(c_readouts, fg_color="transparent")
+        c_live_cell.grid(row=0, column=0, sticky="ew", padx=8, pady=6)
+        ctk.CTkLabel(c_live_cell, text="LIVE CLOCK", font=FONT_MONO_XS, text_color=TEXT_MUTED, anchor="w").pack(fill="x")
+        self.lbl_cpu_live = ctk.CTkLabel(
+            c_live_cell,
+            text="-.-- GHz",
+            font=FONT_MONO_VAL,
+            text_color=ACCENT_CYAN,
+            anchor="e",
+        )
+        self.lbl_cpu_live.pack(fill="x")
+
+        c_tgt_cell = ctk.CTkFrame(c_readouts, fg_color="transparent")
+        c_tgt_cell.grid(row=0, column=1, sticky="ew", padx=8, pady=6)
+        ctk.CTkLabel(c_tgt_cell, text="TARGET CLOCK", font=FONT_MONO_XS, text_color=TEXT_MUTED, anchor="w").pack(fill="x")
+        self.lbl_cpu_target = ctk.CTkLabel(
+            c_tgt_cell,
+            text="    AUTO",
+            font=FONT_MONO_VAL,
+            text_color=ACCENT_AMBER,
+            anchor="e",
+        )
+        self.lbl_cpu_target.pack(fill="x")
+
+        c_sp_row = ctk.CTkFrame(cpu_card, fg_color="transparent")
+        c_sp_row.pack(fill="x", padx=8, pady=(0, 2))
+        ctk.CTkLabel(c_sp_row, text="SETPOINT [0.10 GHz STEP]", font=FONT_MONO_XS, text_color=TEXT_SECONDARY).pack(side="left")
+        self.lbl_cpu_setpoint = ctk.CTkLabel(
+            c_sp_row,
+            text="3.20 GHz (3200 MHz)",
+            font=FONT_MONO_SM_BOLD,
+            text_color=ACCENT_AMBER,
+            anchor="e",
+        )
+        self.lbl_cpu_setpoint.pack(side="right")
+
+        self.slider_cpu_freq = ctk.CTkSlider(
+            cpu_card,
+            from_=CPU_FREQ_MIN_GHZ,
+            to=CPU_FREQ_MAX_GHZ,
+            number_of_steps=27,
+            height=16,
+            corner_radius=2,
+            button_corner_radius=2,
+            button_length=10,
+            fg_color=BORDER_COLOR,
+            progress_color=ACCENT_AMBER,
+            button_color=ACCENT_AMBER_HOVER,
+            button_hover_color=TEXT_PRIMARY,
+            command=self._on_cpu_slider_drag,
+        )
+        self.slider_cpu_freq.set(self._cpu_slider_ghz)
+        self.slider_cpu_freq.pack(fill="x", padx=8, pady=(2, 0))
+
+        c_ticks = ctk.CTkFrame(cpu_card, fg_color="transparent")
+        c_ticks.pack(fill="x", padx=8, pady=(0, 8))
+        for idx, tlabel in enumerate(("1.80", "2.70", "3.60", "4.50")):
+            c_ticks.grid_columnconfigure(idx, weight=1)
+            anc = "w" if idx == 0 else ("e" if idx == 3 else "center")
+            ctk.CTkLabel(c_ticks, text=tlabel, font=FONT_MONO_XS, text_color=TEXT_MUTED, anchor=anc).grid(
+                row=0, column=idx, sticky="ew"
+            )
+
+        c_btns = ctk.CTkFrame(cpu_card, fg_color="transparent")
+        c_btns.pack(fill="x", padx=8, pady=(2, 8))
+        c_btns.grid_columnconfigure((0, 1), weight=1, uniform="cb")
+        self.btn_cpu_apply = ctk.CTkButton(
+            c_btns,
+            text="APPLY",
+            height=28,
+            corner_radius=2,
+            border_width=1,
+            border_color=ACCENT_AMBER,
+            fg_color=SLATE_SURFACE,
+            hover_color="#2A2116",
+            text_color=ACCENT_AMBER,
+            font=FONT_MONO_SM_BOLD,
+            command=self._on_cpu_apply,
+        )
+        self.btn_cpu_apply.grid(row=0, column=0, sticky="ew", padx=(0, 3))
+
+        self.btn_cpu_reset = ctk.CTkButton(
+            c_btns,
+            text="RESET STOCK",
+            height=28,
+            corner_radius=2,
+            border_width=1,
+            border_color=BORDER_COLOR,
+            fg_color=BG_PANEL,
+            hover_color=SLATE_SURFACE,
+            text_color=TEXT_SECONDARY,
+            font=FONT_MONO_SM_BOLD,
+            command=self._on_cpu_reset,
+        )
+        self.btn_cpu_reset.grid(row=0, column=1, sticky="ew", padx=(3, 0))
+
+        # === MODULE B: WINDOWS THERMAL & POWER POLICY ===
+        policy_panel = ctk.CTkFrame(
+            right_col,
+            fg_color=BG_PANEL,
+            border_color=BORDER_COLOR,
+            border_width=1,
+            corner_radius=2,
+        )
+        policy_panel.grid(row=1, column=0, sticky="ew", pady=(0, 6))
+        policy_panel.grid_columnconfigure(0, weight=1)
+
+        p_top = ctk.CTkFrame(policy_panel, fg_color=BG_HEADER, corner_radius=0, height=30)
+        p_top.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0))
+        p_top.grid_propagate(False)
+        ctk.CTkLabel(
+            p_top,
+            text="WINDOWS THERMAL & POWER POLICY [POWERCFG]",
+            font=FONT_HEADER,
+            text_color=TEXT_PRIMARY,
+        ).pack(side="left", padx=10, pady=4)
 
         ctk.CTkButton(
-            top,
+            p_top,
             text="SYNC OS POLICY",
             width=102,
-            height=22,
+            height=20,
             corner_radius=2,
             border_width=1,
             border_color=BORDER_COLOR,
             fg_color=BG_RECESSED,
-            hover_color=SLATE_POLYGON,
+            hover_color=SLATE_SURFACE,
             text_color=TEXT_SECONDARY,
             font=FONT_MONO_XS,
             command=self._on_sync_policy,
-        ).pack(side="right", padx=8, pady=6)
+        ).pack(side="right", padx=8, pady=4)
 
-        # --- Module A: Windows PowerCfg Controls ---
-        mod_a = ctk.CTkFrame(panel, fg_color=BG_RECESSED, corner_radius=2, border_width=1, border_color=DIVIDER_COLOR)
-        mod_a.grid(row=1, column=0, sticky="ew", padx=10, pady=(10, 6))
-        mod_a.grid_columnconfigure(0, weight=1)
+        p_body = ctk.CTkFrame(policy_panel, fg_color="transparent")
+        p_body.grid(row=1, column=0, sticky="ew", padx=10, pady=8)
 
-        # Max Processor State Slider
-        row_t = ctk.CTkFrame(mod_a, fg_color="transparent")
-        row_t.pack(fill="x", padx=10, pady=(8, 2))
+        row_t = ctk.CTkFrame(p_body, fg_color="transparent")
+        row_t.pack(fill="x", pady=(0, 2))
         ctk.CTkLabel(
             row_t,
             text="MAXIMUM PROCESSOR STATE [PROCTHROTTLEMAX]",
@@ -694,94 +1063,84 @@ class HankoThermalApp(ctk.CTk):
             row_t,
             text="100%",
             font=FONT_MONO_BOLD,
-            text_color=ACCENT_BRIGHT,
+            text_color=ACCENT_CYAN,
+            anchor="e",
+            width=48,
         )
         self.lbl_throttle_val.pack(side="right")
 
         self.slider_throttle = ctk.CTkSlider(
-            mod_a,
+            p_body,
             from_=50,
             to=100,
             number_of_steps=50,
-            height=16,
+            height=15,
             corner_radius=2,
             button_corner_radius=2,
             button_length=10,
             fg_color=BORDER_COLOR,
             progress_color=ACCENT_CYAN,
-            button_color=ACCENT_BRIGHT,
+            button_color=ACCENT_CYAN_ALT,
             button_hover_color=TEXT_PRIMARY,
             command=self._on_throttle_drag,
         )
-        self.slider_throttle.pack(fill="x", padx=10, pady=(2, 0))
+        self.slider_throttle.pack(fill="x", pady=(0, 6))
         self.slider_throttle.bind("<ButtonRelease-1>", self._on_throttle_release)
 
-        ticks = ctk.CTkFrame(mod_a, fg_color="transparent")
-        ticks.pack(fill="x", padx=10, pady=(0, 6))
-        for idx, tlabel in enumerate(("50%", "65%", "80%", "95%", "100%")):
-            ticks.grid_columnconfigure(idx, weight=1)
-            anc = "w" if idx == 0 else ("e" if idx == 4 else "center")
-            ctk.CTkLabel(ticks, text=tlabel, font=FONT_MONO_XS, text_color=TEXT_MUTED, anchor=anc).grid(
-                row=0, column=idx, sticky="ew"
-            )
-
-        # Processor Boost Mode
         ctk.CTkLabel(
-            mod_a,
+            p_body,
             text="PROCESSOR BOOST MODE [PERFBOOSTMODE]",
             font=FONT_MONO_XS,
             text_color=TEXT_SECONDARY,
             anchor="w",
-        ).pack(fill="x", padx=10, pady=(2, 3))
+        ).pack(fill="x", pady=(0, 2))
 
         self.seg_boost = ctk.CTkSegmentedButton(
-            mod_a,
+            p_body,
             values=list(BOOST_MODES_BY_LABEL.keys()),
-            height=28,
+            height=26,
             corner_radius=2,
             border_width=1,
-            fg_color=BG_PANEL,
+            fg_color=BG_RECESSED,
             selected_color=ACCENT_CYAN,
-            selected_hover_color=ACCENT_BRIGHT,
-            unselected_color=BG_PANEL,
-            unselected_hover_color=SLATE_POLYGON,
+            selected_hover_color=ACCENT_CYAN_ALT,
+            unselected_color=BG_RECESSED,
+            unselected_hover_color=SLATE_SURFACE,
             text_color=TEXT_PRIMARY,
             font=FONT_UI_SM,
             dynamic_resizing=False,
             command=self._on_boost_select,
         )
-        self.seg_boost.pack(fill="x", padx=10, pady=(0, 8))
+        self.seg_boost.pack(fill="x", pady=(0, 6))
 
-        # System Cooling Policy
         ctk.CTkLabel(
-            mod_a,
+            p_body,
             text="SYSTEM COOLING POLICY [SYSCOOLPOL]",
             font=FONT_MONO_XS,
             text_color=TEXT_SECONDARY,
             anchor="w",
-        ).pack(fill="x", padx=10, pady=(0, 3))
+        ).pack(fill="x", pady=(0, 2))
 
         self.seg_cooling = ctk.CTkSegmentedButton(
-            mod_a,
+            p_body,
             values=list(COOLING_POLICIES_BY_LABEL.keys()),
-            height=28,
+            height=26,
             corner_radius=2,
             border_width=1,
-            fg_color=BG_PANEL,
+            fg_color=BG_RECESSED,
             selected_color=ACCENT_CYAN,
-            selected_hover_color=ACCENT_BRIGHT,
-            unselected_color=BG_PANEL,
-            unselected_hover_color=SLATE_POLYGON,
+            selected_hover_color=ACCENT_CYAN_ALT,
+            unselected_color=BG_RECESSED,
+            unselected_hover_color=SLATE_SURFACE,
             text_color=TEXT_PRIMARY,
             font=FONT_UI_SM,
             dynamic_resizing=False,
             command=self._on_cooling_select,
         )
-        self.seg_cooling.pack(fill="x", padx=10, pady=(0, 8))
+        self.seg_cooling.pack(fill="x", pady=(0, 8))
 
-        # Quick Policy Strip
-        qbar = ctk.CTkFrame(mod_a, fg_color="transparent")
-        qbar.pack(fill="x", padx=10, pady=(0, 8))
+        qbar = ctk.CTkFrame(p_body, fg_color="transparent")
+        qbar.pack(fill="x")
         qbar.grid_columnconfigure((0, 1, 2), weight=1, uniform="qp")
 
         presets = [
@@ -797,129 +1156,44 @@ class HankoThermalApp(ctk.CTk):
                 corner_radius=2,
                 border_width=1,
                 border_color=BORDER_COLOR,
-                fg_color=BG_PANEL,
-                hover_color=SLATE_POLYGON,
+                fg_color=BG_RECESSED,
+                hover_color=SLATE_SURFACE,
                 text_color=TEXT_SECONDARY,
                 font=FONT_MONO_XS,
                 command=lambda p=pct, b=boost, c=cool: self._apply_preset(p, b, c),
             ).grid(row=0, column=col, sticky="ew", padx=(0 if col == 0 else 3, 0 if col == 2 else 3))
 
-        # --- Module B: PWM Fan Duty & Piecewise Curve Editor ---
-        mod_b = ctk.CTkFrame(panel, fg_color=BG_RECESSED, corner_radius=2, border_width=1, border_color=DIVIDER_COLOR)
-        mod_b.grid(row=2, column=0, sticky="nsew", padx=10, pady=6)
-        mod_b.grid_rowconfigure(2, weight=1)
-        mod_b.grid_columnconfigure(0, weight=1)
-
-        unlocked = self.engine.static_info.pwm_control_available
-
-        fb_hdr = ctk.CTkFrame(mod_b, fg_color="transparent")
-        fb_hdr.grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 4))
-        ctk.CTkLabel(
-            fb_hdr,
-            text="PWM FAN DUTY & PIECEWISE LINEAR CURVE",
-            font=FONT_MONO_XS,
-            text_color=TEXT_SECONDARY,
-        ).pack(side="left")
-
-        badge_text = "PWM ACTIVE (UNLOCKED)" if unlocked else "LOCKED BY OEM BIOS EC"
-        badge_color = STATUS_OK if unlocked else STATUS_WARN
-        ctk.CTkLabel(
-            fb_hdr,
-            text=badge_text,
-            font=FONT_MONO_XS,
-            text_color=badge_color,
+        # === MODULE C: THERMAL LOAD VERIFICATION ===
+        stress_panel = ctk.CTkFrame(
+            right_col,
             fg_color=BG_PANEL,
-            corner_radius=2,
-            padx=6,
-            pady=2,
-        ).pack(side="right")
-
-        duty_row = ctk.CTkFrame(mod_b, fg_color="transparent")
-        duty_row.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 6))
-        duty_row.grid_columnconfigure(1, weight=1)
-
-        self.seg_fan_mode = ctk.CTkSegmentedButton(
-            duty_row,
-            values=["AUTO", "MANUAL", "CURVE"],
-            width=180,
-            height=24,
-            corner_radius=2,
+            border_color=BORDER_COLOR,
             border_width=1,
-            fg_color=BG_PANEL,
-            selected_color=ACCENT_CYAN if unlocked else BORDER_COLOR,
-            unselected_color=BG_PANEL,
-            text_color=TEXT_PRIMARY if unlocked else TEXT_MUTED,
-            font=FONT_MONO_XS,
-            dynamic_resizing=False,
-            state="normal" if unlocked else "disabled",
-            command=self._on_fan_mode_select,
-        )
-        self.seg_fan_mode.set("AUTO")
-        self.seg_fan_mode.grid(row=0, column=0, padx=(0, 8))
-
-        self.slider_pwm = ctk.CTkSlider(
-            duty_row,
-            from_=0,
-            to=100,
-            number_of_steps=100,
-            height=14,
             corner_radius=2,
-            button_corner_radius=2,
-            button_length=10,
-            fg_color=BORDER_COLOR,
-            progress_color=ACCENT_CYAN if unlocked else "#374151",
-            button_color=ACCENT_BRIGHT if unlocked else "#4B5563",
-            state="normal" if unlocked else "disabled",
-            command=self._on_pwm_drag,
         )
-        self.slider_pwm.set(50)
-        self.slider_pwm.grid(row=0, column=1, sticky="ew", padx=(0, 8))
-        if unlocked:
-            self.slider_pwm.bind("<ButtonRelease-1>", self._on_pwm_release)
+        stress_panel.grid(row=2, column=0, sticky="ew")
+        stress_panel.grid_columnconfigure(0, weight=1)
 
-        self.lbl_pwm_val = ctk.CTkLabel(
-            duty_row,
-            text="50%" if unlocked else "EC LOCK",
-            width=58,
-            font=FONT_MONO_BOLD,
-            text_color=ACCENT_BRIGHT if unlocked else STATUS_WARN,
-            anchor="e",
-        )
-        self.lbl_pwm_val.grid(row=0, column=2)
-
-        self.curve_canvas = FanCurveCanvas(
-            mod_b,
-            points=DEFAULT_FAN_CURVE,
-            unlocked=unlocked,
-            on_curve_changed=self._on_curve_changed,
-        )
-        self.curve_canvas.grid(row=2, column=0, sticky="nsew", padx=10, pady=(0, 8))
-
-        # --- Module C: Thermal Load Test ---
-        mod_c = ctk.CTkFrame(panel, fg_color=BG_RECESSED, corner_radius=2, border_width=1, border_color=DIVIDER_COLOR)
-        mod_c.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 10))
-        mod_c.grid_columnconfigure(0, weight=1)
-
-        c_top = ctk.CTkFrame(mod_c, fg_color="transparent")
-        c_top.pack(fill="x", padx=10, pady=(8, 4))
+        st_top = ctk.CTkFrame(stress_panel, fg_color="transparent")
+        st_top.pack(fill="x", padx=10, pady=(7, 4))
         ctk.CTkLabel(
-            c_top,
-            text="THERMAL LOAD TEST (MULTI-CORE STRESS)",
-            font=FONT_MONO_XS,
+            st_top,
+            text="THERMAL LOAD VERIFICATION (MULTI-CORE STRESS)",
+            font=FONT_MONO_XS_BOLD,
             text_color=TEXT_SECONDARY,
         ).pack(side="left")
 
         self.seg_stress_width = ctk.CTkSegmentedButton(
-            c_top,
+            st_top,
             values=["25%", "50%", "75%", "100%"],
             width=180,
             height=22,
             corner_radius=2,
             border_width=1,
-            fg_color=BG_PANEL,
+            fg_color=BG_RECESSED,
             selected_color=ACCENT_CYAN,
-            selected_hover_color=ACCENT_BRIGHT,
-            unselected_color=BG_PANEL,
+            selected_hover_color=ACCENT_CYAN_ALT,
+            unselected_color=BG_RECESSED,
             text_color=TEXT_PRIMARY,
             font=FONT_MONO_XS,
             dynamic_resizing=False,
@@ -927,29 +1201,29 @@ class HankoThermalApp(ctk.CTk):
         self.seg_stress_width.set("100%")
         self.seg_stress_width.pack(side="right")
 
-        c_action = ctk.CTkFrame(mod_c, fg_color="transparent")
-        c_action.pack(fill="x", padx=10, pady=(2, 8))
-        c_action.grid_columnconfigure(0, weight=3)
-        c_action.grid_columnconfigure(1, weight=2)
+        st_action = ctk.CTkFrame(stress_panel, fg_color="transparent")
+        st_action.pack(fill="x", padx=10, pady=(2, 8))
+        st_action.grid_columnconfigure(0, weight=3)
+        st_action.grid_columnconfigure(1, weight=2)
 
         self.btn_stress = ctk.CTkButton(
-            c_action,
+            st_action,
             text="START MULTI-CORE LOAD TEST",
-            height=32,
+            height=30,
             corner_radius=2,
             border_width=1,
             border_color=ACCENT_CYAN,
-            fg_color=SLATE_POLYGON,
-            hover_color="#232B36",
-            text_color=ACCENT_BRIGHT,
+            fg_color=SLATE_SURFACE,
+            hover_color="#1A2633",
+            text_color=ACCENT_CYAN,
             font=FONT_MONO_BOLD,
             command=self._on_toggle_stress,
         )
         self.btn_stress.grid(row=0, column=0, sticky="ew", padx=(0, 8))
 
         self.lbl_stress_stats = ctk.CTkLabel(
-            c_action,
-            text="ELAPSED 00:00  |  WORKERS 0\nTEMP DELTA: --",
+            st_action,
+            text="ELAPSED 00:00  |  WORKERS  0\nTEMP DELTA:    --",
             font=FONT_MONO_XS,
             text_color=TEXT_MUTED,
             justify="right",
@@ -957,20 +1231,96 @@ class HankoThermalApp(ctk.CTk):
         )
         self.lbl_stress_stats.grid(row=0, column=1, sticky="ew")
 
+    # === CLOCK TUNING HANDLERS ===
+
+    def _sync_clock_widgets(self) -> None:
+        state = self.clock_tuner.get_state()
+        if not state.nvidia_available:
+            self.lbl_gpu_lock_badge.configure(text="NO NVIDIA GPU", text_color=TEXT_MUTED)
+            self.lbl_gpu_target.configure(text="     N/A", text_color=TEXT_MUTED)
+        elif state.target_gpu_mhz is not None:
+            self.lbl_gpu_lock_badge.configure(text="LOCKED", text_color=ACCENT_AMBER)
+            self.lbl_gpu_target.configure(text=f"{state.target_gpu_mhz:4d} MHz", text_color=ACCENT_AMBER)
+        else:
+            self.lbl_gpu_lock_badge.configure(text="STOCK", text_color=ACCENT_CYAN)
+            self.lbl_gpu_target.configure(text="   STOCK", text_color=TEXT_SECONDARY)
+
+        if state.target_cpu_ghz is not None and state.target_cpu_mhz > 0:
+            snapped = snap_cpu_freq_ghz(state.target_cpu_ghz)
+            self._cpu_slider_ghz = snapped
+            self.slider_cpu_freq.set(snapped)
+            self.lbl_cpu_setpoint.configure(text=f"{snapped:4.2f} GHz ({state.target_cpu_mhz:4d} MHz)")
+            self.lbl_cpu_cap_badge.configure(text="CAPPED", text_color=ACCENT_AMBER)
+            self.lbl_cpu_target.configure(text=f"{snapped:4.2f} GHz", text_color=ACCENT_AMBER)
+        else:
+            self.lbl_cpu_cap_badge.configure(text="TURBO AUTO", text_color=ACCENT_CYAN)
+            self.lbl_cpu_target.configure(text="    AUTO", text_color=TEXT_SECONDARY)
+
+    def _on_gpu_slider_drag(self, val: float) -> None:
+        snapped = snap_gpu_clock_mhz(val)
+        self._gpu_slider_mhz = snapped
+        self.lbl_gpu_setpoint.configure(text=f"{snapped:4d} MHz")
+
+    def _on_gpu_apply(self) -> None:
+        target = snap_gpu_clock_mhz(self.slider_gpu_clock.get())
+        self._gpu_slider_mhz = target
+        self.lbl_gpu_setpoint.configure(text=f"{target:4d} MHz")
+
+        def _task() -> tuple[bool, str]:
+            ok, msg = self.clock_tuner.apply_gpu_clock(target)
+            self.after(0, self._sync_clock_widgets)
+            return ok, msg
+
+        self._run_bg(_task)
+
+    def _on_gpu_reset(self) -> None:
+        def _task() -> tuple[bool, str]:
+            ok, msg = self.clock_tuner.reset_gpu()
+            self.after(0, self._sync_clock_widgets)
+            return ok, msg
+
+        self._run_bg(_task)
+
+    def _on_cpu_slider_drag(self, val: float) -> None:
+        snapped = snap_cpu_freq_ghz(val)
+        self._cpu_slider_ghz = snapped
+        mhz = ghz_to_mhz(snapped)
+        self.lbl_cpu_setpoint.configure(text=f"{snapped:4.2f} GHz ({mhz:4d} MHz)")
+
+    def _on_cpu_apply(self) -> None:
+        snapped = snap_cpu_freq_ghz(self.slider_cpu_freq.get())
+        self._cpu_slider_ghz = snapped
+        mhz = ghz_to_mhz(snapped)
+        self.lbl_cpu_setpoint.configure(text=f"{snapped:4.2f} GHz ({mhz:4d} MHz)")
+
+        def _task() -> tuple[bool, str]:
+            ok, msg = self.clock_tuner.apply_cpu_freq(snapped)
+            self.after(0, self._sync_clock_widgets)
+            return ok, msg
+
+        self._run_bg(_task)
+
+    def _on_cpu_reset(self) -> None:
+        def _task() -> tuple[bool, str]:
+            ok, msg = self.clock_tuner.reset_cpu()
+            self.after(0, self._sync_clock_widgets)
+            return ok, msg
+
+        self._run_bg(_task)
+
     # === POLICY CONTROL HANDLERS ===
 
     def _sync_policy_widgets(self, state: PowerPolicyState) -> None:
         if state.proc_throttle_max is not None:
             pct = max(50, min(100, state.proc_throttle_max))
             self.slider_throttle.set(pct)
-            self.lbl_throttle_val.configure(text=f"{pct}%")
+            self.lbl_throttle_val.configure(text=f"{pct:3d}%")
         else:
-            self.lbl_throttle_val.configure(text="N/A")
+            self.lbl_throttle_val.configure(text=" N/A")
 
         if state.perf_boost_mode in BOOST_LABELS:
             self.seg_boost.set(BOOST_LABELS[state.perf_boost_mode])
         elif state.perf_boost_mode is not None:
-            # Windows has additional intermediate boost indices (1,4,5,6); map conservatively.
             fallback = "Aggressive (Full Boost)" if state.perf_boost_mode in (1, 2, 4, 5, 6) else "Disabled (Cool/Quiet)"
             self.seg_boost.set(fallback)
 
@@ -989,7 +1339,7 @@ class HankoThermalApp(ctk.CTk):
 
     def _on_throttle_drag(self, val: float) -> None:
         pct = int(round(val))
-        self.lbl_throttle_val.configure(text=f"{pct}%")
+        self.lbl_throttle_val.configure(text=f"{pct:3d}%")
         if self._throttle_debounce_id is not None:
             self.after_cancel(self._throttle_debounce_id)
         self._throttle_debounce_id = self.after(180, lambda p=pct: self._apply_throttle(p))
@@ -1017,7 +1367,7 @@ class HankoThermalApp(ctk.CTk):
 
     def _apply_preset(self, pct: int, boost: int, cool: int) -> None:
         self.slider_throttle.set(pct)
-        self.lbl_throttle_val.configure(text=f"{pct}%")
+        self.lbl_throttle_val.configure(text=f"{pct:3d}%")
         self.seg_boost.set(BOOST_LABELS[boost])
         self.seg_cooling.set(COOLING_LABELS[cool])
 
@@ -1034,33 +1384,15 @@ class HankoThermalApp(ctk.CTk):
     def _on_sync_policy(self) -> None:
         def _sync() -> None:
             state = read_power_policy()
+            cpu_mhz = self.clock_tuner.sync_cpu_target()
             self.after(0, lambda: self._sync_policy_widgets(state))
+            self.after(0, self._sync_clock_widgets)
             self._status_queue.put(
                 f"Synced OS powercfg: max={state.proc_throttle_max}%, "
-                f"boost={state.perf_boost_mode}, cool={state.sys_cool_pol}"
+                f"boost={state.perf_boost_mode}, cool={state.sys_cool_pol}, procfreqmax={cpu_mhz}MHz"
             )
 
         threading.Thread(target=_sync, daemon=True).start()
-
-    # === PWM & CURVE HANDLERS ===
-
-    def _on_fan_mode_select(self, mode: str) -> None:
-        duty = int(round(self.slider_pwm.get()))
-        curve = [(float(t), float(d)) for t, d in self.curve_canvas.points]
-        self._run_bg(lambda: self.engine.set_pwm_mode(mode, manual_duty=duty, curve_points=curve))
-
-    def _on_pwm_drag(self, val: float) -> None:
-        duty = int(round(val))
-        self.lbl_pwm_val.configure(text=f"{duty}%")
-
-    def _on_pwm_release(self, _event: Any) -> None:
-        duty = int(round(self.slider_pwm.get()))
-        self.seg_fan_mode.set("MANUAL")
-        self._run_bg(lambda: self.engine.set_pwm_mode("MANUAL", manual_duty=duty))
-
-    def _on_curve_changed(self, points: list[tuple[float, float]]) -> None:
-        self.seg_fan_mode.set("CURVE")
-        self._run_bg(lambda: self.engine.set_pwm_mode("CURVE", curve_points=points))
 
     # === STRESS TEST HANDLER ===
 
@@ -1071,9 +1403,9 @@ class HankoThermalApp(ctk.CTk):
             self.btn_stress.configure(
                 text="START MULTI-CORE LOAD TEST",
                 border_color=ACCENT_CYAN,
-                fg_color=SLATE_POLYGON,
-                hover_color="#232B36",
-                text_color=ACCENT_BRIGHT,
+                fg_color=SLATE_SURFACE,
+                hover_color="#1A2633",
+                text_color=ACCENT_CYAN,
             )
             self._status_queue.put("Thermal load test stopped; worker processes terminated")
         else:
@@ -1104,7 +1436,6 @@ class HankoThermalApp(ctk.CTk):
         return f"[{stamp}] {msg}"
 
     def _update_ui_loop(self) -> None:
-        # Drain status messages
         while not self._status_queue.empty():
             try:
                 msg = self._status_queue.get_nowait()
@@ -1115,148 +1446,211 @@ class HankoThermalApp(ctk.CTk):
         snap = self.engine.get_snapshot()
         mm = self.engine.min_max
 
-        # Heartbeat pulse
+        # Heartbeat indicator
         self._heartbeat_state = not self._heartbeat_state
         self.heartbeat_canvas.itemconfig(
             self._hb_rect,
-            fill=ACCENT_BRIGHT if self._heartbeat_state else SLATE_POLYGON,
+            fill=ACCENT_CYAN if self._heartbeat_state else SLATE_SURFACE,
         )
 
-        # CPU rows
+        # Header live hardware summary (fixed width)
+        cpu_t = f"{snap.cpu_temp_c:5.1f}°C" if snap.cpu_temp_c is not None else "  --.-°C"
+        cpu_f = f"{snap.cpu_clock_ghz:4.2f}GHz" if snap.cpu_clock_ghz is not None else "-.--GHz"
+        gpu_t = f"{snap.gpu_temp_c:3.0f}°C" if snap.gpu_temp_c is not None else " --°C"
+        gpu_f = f"{snap.gpu_clock_mhz:4.0f}MHz" if snap.gpu_clock_mhz is not None else "----MHz"
+        fan_cnt = snap.fan_scan.fan_count
+        self.lbl_hw_summary.configure(
+            text=f"CPU: {cpu_t} {cpu_f}  |  GPU: {gpu_t} {gpu_f}  |  FANS: {fan_cnt:2d}"
+        )
+
+        # CPU sensor rows (fixed width, right-aligned)
         cmin, cmax = mm.get("cpu_temp_c")
         self.row_cpu_temp.update(
-            _fmt_num(snap.cpu_temp_c, ".1f", " °C", "N/A (Sensor Locked)"),
-            _fmt_num(cmin, ".1f", "°"),
-            _fmt_num(cmax, ".1f", "°"),
+            _fmt_fixed(snap.cpu_temp_c, "5.1f", " °C", 9, "N/A (Locked)"),
+            _fmt_fixed(cmin, "5.1f", "°", 6, "    --"),
+            _fmt_fixed(cmax, "5.1f", "°", 6, "    --"),
             curr_color=_temp_color(snap.cpu_temp_c),
         )
 
         fmin, fmax = mm.get("cpu_clock_ghz")
         self.row_cpu_clock.update(
-            _fmt_num(snap.cpu_clock_ghz, ".2f", " GHz"),
-            _fmt_num(fmin, ".2f", "G"),
-            _fmt_num(fmax, ".2f", "G"),
+            _fmt_fixed(snap.cpu_clock_ghz, "4.2f", " GHz", 8),
+            _fmt_fixed(fmin, "4.2f", "G", 6, "    --"),
+            _fmt_fixed(fmax, "4.2f", "G", 6, "    --"),
+            curr_color=ACCENT_CYAN if snap.cpu_clock_ghz is not None else TEXT_MUTED,
         )
 
         lmin, lmax = mm.get("cpu_load_pct")
         self.row_cpu_load.update(
-            f"{snap.cpu_load_pct:.1f} %",
-            _fmt_num(lmin, ".1f", "%"),
-            _fmt_num(lmax, ".1f", "%"),
-            curr_color=ACCENT_BRIGHT if snap.cpu_load_pct > 80 else TEXT_PRIMARY,
+            f"{snap.cpu_load_pct:5.1f} %",
+            _fmt_fixed(lmin, "5.1f", "%", 6, "    --"),
+            _fmt_fixed(lmax, "5.1f", "%", 6, "    --"),
+            curr_color=ACCENT_AMBER if snap.cpu_load_pct >= 85.0 else TEXT_PRIMARY,
             bar_ratio=snap.cpu_load_pct / 100.0,
         )
 
         pmin, pmax = mm.get("cpu_peak_core_pct")
         self.row_cpu_peak.update(
-            f"{snap.cpu_peak_core_pct:.1f} %",
-            _fmt_num(pmin, ".1f", "%"),
-            _fmt_num(pmax, ".1f", "%"),
+            f"{snap.cpu_peak_core_pct:5.1f} %",
+            _fmt_fixed(pmin, "5.1f", "%", 6, "    --"),
+            _fmt_fixed(pmax, "5.1f", "%", 6, "    --"),
         )
 
-        # GPU rows
+        # GPU sensor rows
         gmin, gmax = mm.get("gpu_temp_c")
         self.row_gpu_temp.update(
-            _fmt_num(snap.gpu_temp_c, ".0f", " °C"),
-            _fmt_num(gmin, ".0f", "°"),
-            _fmt_num(gmax, ".0f", "°"),
+            _fmt_fixed(snap.gpu_temp_c, "3.0f", " °C", 7),
+            _fmt_fixed(gmin, "3.0f", "°", 5, "    --"),
+            _fmt_fixed(gmax, "3.0f", "°", 5, "    --"),
             curr_color=_temp_color(snap.gpu_temp_c),
         )
 
         gcmin, gcmax = mm.get("gpu_clock_mhz")
         self.row_gpu_clock.update(
-            _fmt_num(snap.gpu_clock_mhz, ".0f", " MHz"),
-            _fmt_num(gcmin, ".0f", "M"),
-            _fmt_num(gcmax, ".0f", "M"),
+            _fmt_fixed(snap.gpu_clock_mhz, "4.0f", " MHz", 8),
+            _fmt_fixed(gcmin, "4.0f", "M", 5, "    --"),
+            _fmt_fixed(gcmax, "4.0f", "M", 5, "    --"),
+            curr_color=ACCENT_CYAN if snap.gpu_clock_mhz is not None else TEXT_MUTED,
         )
 
         gpmin, gpmax = mm.get("gpu_power_w")
         self.row_gpu_power.update(
-            _fmt_num(snap.gpu_power_w, ".1f", " W", "N/A (Not Exposed)"),
-            _fmt_num(gpmin, ".1f", "W"),
-            _fmt_num(gpmax, ".1f", "W"),
+            _fmt_fixed(snap.gpu_power_w, "5.1f", " W", 7, "N/A (No PMIC)"),
+            _fmt_fixed(gpmin, "5.1f", "W", 6, "    --"),
+            _fmt_fixed(gpmax, "5.1f", "W", 6, "    --"),
             curr_color=TEXT_PRIMARY if snap.gpu_power_w is not None else TEXT_MUTED,
         )
 
         glmin, glmax = mm.get("gpu_load_pct")
         self.row_gpu_load.update(
-            _fmt_num(snap.gpu_load_pct, ".0f", " %"),
-            _fmt_num(glmin, ".0f", "%"),
-            _fmt_num(glmax, ".0f", "%"),
+            _fmt_fixed(snap.gpu_load_pct, "3.0f", " %", 5),
+            _fmt_fixed(glmin, "3.0f", "%", 5, "    --"),
+            _fmt_fixed(glmax, "3.0f", "%", 5, "    --"),
             bar_ratio=(snap.gpu_load_pct / 100.0) if snap.gpu_load_pct is not None else 0.0,
         )
 
         if snap.gpu_vram_used_mb is not None and snap.gpu_vram_total_mb is not None:
-            vram_text = f"{int(snap.gpu_vram_used_mb)} / {int(snap.gpu_vram_total_mb)} MB"
-            pstate_text = snap.gpu_pstate or "--"
-            self.row_gpu_vram.update(vram_text, pstate_text, "--")
+            vram_text = f"{int(snap.gpu_vram_used_mb):4d}/{int(snap.gpu_vram_total_mb):4d} MB"
+            pstate_text = (snap.gpu_pstate or "--").rjust(5)
+            self.row_gpu_vram.update(vram_text, pstate_text, "    --")
         else:
-            self.row_gpu_vram.update("N/A", "--", "--", curr_color=TEXT_MUTED)
+            self.row_gpu_vram.update("     N/A", "    --", "    --", curr_color=TEXT_MUTED)
 
-        # Fans tree (honest reporting)
-        self._update_fan_rows(snap.fans)
+        # Cooling & Fan Array
+        self._update_fan_array(snap.fan_scan)
 
-        # Update curve temperature cursor
-        op_temp = snap.gpu_temp_c if snap.gpu_temp_c is not None else snap.cpu_temp_c
-        self.curve_canvas.set_operating_temp(op_temp)
+        # Live Clock Readouts in Clock Tuning Panel (fixed width)
+        if snap.gpu_clock_mhz is not None:
+            self.lbl_gpu_live.configure(text=f"{snap.gpu_clock_mhz:4.0f} MHz", text_color=ACCENT_CYAN)
+        else:
+            self.lbl_gpu_live.configure(text="---- MHz", text_color=TEXT_MUTED)
 
-        # Update thermal stress telemetry
+        if snap.cpu_clock_ghz is not None:
+            self.lbl_cpu_live.configure(text=f"{snap.cpu_clock_ghz:4.2f} GHz", text_color=ACCENT_CYAN)
+        else:
+            self.lbl_cpu_live.configure(text="-.-- GHz", text_color=TEXT_MUTED)
+
+        # Thermal load test telemetry
         if self.stress.is_running:
             el = int(self.stress.elapsed_seconds)
             mins, secs = divmod(el, 60)
             cur_temp = snap.cpu_temp_c if snap.cpu_temp_c is not None else snap.gpu_temp_c
             if cur_temp is not None and self._stress_baseline_temp is not None:
-                delta_str = f"{cur_temp - self._stress_baseline_temp:+.1f}°C"
+                delta_str = f"{cur_temp - self._stress_baseline_temp:+5.1f}°C"
             else:
                 delta_str = "ACTIVE"
             self.lbl_stress_stats.configure(
-                text=f"ELAPSED {mins:02d}:{secs:02d}  |  WORKERS {self.stress.active_workers}\nTEMP DELTA: {delta_str}",
-                text_color=STATUS_WARN,
+                text=f"ELAPSED {mins:02d}:{secs:02d}  |  WORKERS {self.stress.active_workers:2d}\nTEMP DELTA: {delta_str}",
+                text_color=ACCENT_AMBER,
             )
         else:
             self.lbl_stress_stats.configure(
-                text="ELAPSED 00:00  |  WORKERS 0\nTEMP DELTA: --",
+                text="ELAPSED 00:00  |  WORKERS  0\nTEMP DELTA:    --",
                 text_color=TEXT_MUTED,
             )
 
-        # Refresh inventory source summary
+        # Inventory strip
         info = self.engine.static_info
-        pwm_text = info.pwm_backend if info.pwm_control_available else info.pwm_lock_reason
+        fan_bus = f"{snap.fan_scan.backend} ({snap.fan_scan.fan_count} ch)"
         self.lbl_inventory.configure(
             text=(
-                f"OS: {info.os_version}  |  TEMP SRC: {snap.cpu_temp_source}\n"
-                f"GPU DRV: {info.gpu_driver}  |  PWM: {pwm_text}"
+                f"OS: {info.os_version}  |  GPU DRV: {info.gpu_driver}\n"
+                f"TEMP SRC: {snap.cpu_temp_source}  |  FAN BUS: {fan_bus}"
             )
         )
 
         self.after(1000, self._update_ui_loop)
 
-    def _update_fan_rows(self, fans: list[FanReading]) -> None:
-        if not fans:
-            sig = ("__LOCKED__",)
+    def _update_fan_array(self, fan_scan: FanScanResult) -> None:
+        count = fan_scan.fan_count
+        self.lbl_fan_count.configure(
+            text=f"DETECTED FANS: {count}",
+            text_color=ACCENT_CYAN if count > 0 else ACCENT_AMBER,
+        )
+
+        if count == 0 or not fan_scan.fans:
+            sig = ("__LOCKED__", fan_scan.status_message)
             if sig != self._fan_signature:
-                for w in self.fan_container.winfo_children():
-                    w.destroy()
-                row = SensorRow(self.fan_container, "Chassis / CPU Fan")
-                self._fan_rows = [row]
+                for child in self.fan_scroll.winfo_children():
+                    child.destroy()
+                self._fan_rows = []
                 self._fan_signature = sig
-            self._fan_rows[0].update("N/A (OEM EC Locked)", "--", "--", curr_color=STATUS_WARN)
+
+                lock_card = ctk.CTkFrame(
+                    self.fan_scroll,
+                    fg_color=BG_RECESSED,
+                    border_color=ACCENT_AMBER,
+                    border_width=1,
+                    corner_radius=2,
+                )
+                lock_card.pack(fill="x", padx=2, pady=2)
+
+                hdr = ctk.CTkFrame(lock_card, fg_color="transparent")
+                hdr.pack(fill="x", padx=10, pady=(8, 3))
+                ctk.CTkLabel(
+                    hdr,
+                    text=fan_scan.status_message or EC_LOCKED_MESSAGE,
+                    font=FONT_MONO_BOLD,
+                    text_color=ACCENT_AMBER,
+                    anchor="w",
+                ).pack(side="left")
+                ctk.CTkLabel(
+                    hdr,
+                    text="   0 RPM  |  0.0 %",
+                    font=FONT_MONO_SM,
+                    text_color=TEXT_MUTED,
+                    anchor="e",
+                ).pack(side="right")
+
+                ctk.CTkLabel(
+                    lock_card,
+                    text=(
+                        f"{fan_scan.backend}: 0 SensorType.Fan channels exposed by firmware.\n"
+                        "Tachometer registers are write/read-protected by OEM Embedded Controller."
+                    ),
+                    font=FONT_MONO_XS,
+                    text_color=TEXT_SECONDARY,
+                    justify="left",
+                    anchor="w",
+                ).pack(fill="x", padx=10, pady=(0, 6))
+
+                empty_bar = SegmentedProgressBar(lock_card, height=12)
+                empty_bar.pack(fill="x", padx=10, pady=(0, 8))
+                empty_bar.set_ratio(0.0)
             return
 
-        sig = tuple(f.name for f in fans)
+        sig = tuple(f.identifier for f in fan_scan.fans)
         if sig != self._fan_signature:
-            for w in self.fan_container.winfo_children():
-                w.destroy()
-            self._fan_rows = [SensorRow(self.fan_container, f.name) for f in fans]
+            for child in self.fan_scroll.winfo_children():
+                child.destroy()
+            self._fan_rows = [
+                FanArrayRow(self.fan_scroll, f.name, f.pct_source.upper())
+                for f in fan_scan.fans
+            ]
             self._fan_signature = sig
 
-        for row, f in zip(self._fan_rows, fans):
-            if f.rpm is not None:
-                row.update(f"{int(round(f.rpm))} RPM", "--", "--", curr_color=ACCENT_BRIGHT)
-            elif f.duty_pct is not None:
-                row.update(f"{f.duty_pct:.0f}% Duty", "--", "--", curr_color=ACCENT_BRIGHT)
-            else:
-                row.update(f.status or "N/A (OEM EC Locked)", "--", "--", curr_color=STATUS_WARN)
+        for row, channel in zip(self._fan_rows, fan_scan.fans):
+            row.update(channel)
 
     def _finish_smoke_test(self) -> None:
         print("SMOKE_TEST_OK", flush=True)
