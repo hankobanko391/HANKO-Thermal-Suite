@@ -78,3 +78,14 @@ python -m pip install -r requirements.txt pyinstaller
 - **GitHub Pages:** https://hankobanko391.github.io/HANKO-Thermal-Suite/
 - **Releases:** https://github.com/hankobanko391/HANKO-Thermal-Suite/releases
 - **License:** [MIT](LICENSE)
+
+---
+
+## Author & Related Projects by Yassin Haitham (`hankobanko391`)
+
+- **Author:** **Yassin Haitham** ([@hankobanko391](https://github.com/hankobanko391))
+- **Portfolio Hub:** https://hankobanko391.github.io/
+- **Public Windows Hardware Utilities Ecosystem:**
+  - [**HANKO Thermal Suite**](https://github.com/hankobanko391/HANKO-Thermal-Suite) ([Live Site](https://hankobanko391.github.io/HANKO-Thermal-Suite/)) — Industrial Windows hardware telemetry, `powercfg` processor policy engine, and multi-core thermal load verification utility.
+  - [**BANKO Performance Monitor**](https://github.com/hankobanko391/BANKO-Performance-Monitor) ([Live Site](https://hankobanko391.github.io/BANKO-Performance-Monitor/)) — Universal Windows 10/11 GPU, CPU, and RAM performance monitor, mini gaming overlay, DWM FPS counter, and one-click Boost System.
+  - [**BANKO Safe OC Tuners (BANKO Tuner)**](https://github.com/hankobanko391/BANKO-Safe-OC-Tuners) ([Live Site](https://hankobanko391.github.io/BANKO-Safe-OC-Tuners/)) — Brand-locked HP and Dell laptop GPU & performance tuners with an 82°C automatic thermal cutoff and zero-voltage safety lock.
